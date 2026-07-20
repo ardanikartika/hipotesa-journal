@@ -261,11 +261,6 @@ if (IS_PRODUCTION) {
 
   if (fs.existsSync(FRONTEND_DIST)) {
     app.use(express.static(FRONTEND_DIST));
-    app.get('*', (req, res) => {
-      if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
-      }
-    });
   }
 }
 
