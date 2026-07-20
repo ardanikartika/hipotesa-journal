@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { Save, Sparkles, User, X, Mic, MicOff, Plus, Minus } from 'lucide-react';
+import { Save, Sparkles, User, Plus, Minus, BookOpen, Link2, Trash2, ExternalLink } from 'lucide-react';
 import VoiceInput from './VoiceInput';
-import { STATUS_LABELS } from '../types';
+import { SOURCE_TYPES } from '../types';
 import { generateTitle } from '../utils/helpers';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function InputForm({ onSave, existingHypotheses = [], editMode, onCancel }) {
   const [author, setAuthor] = useState(editMode?.author || '');
@@ -12,10 +13,13 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
   const [counter, setCounter] = useState(editMode?.counter || '');
   const [status, setStatus] = useState(editMode?.status || 'needs-research');
   const [relatedIds, setRelatedIds] = useState(editMode?.relatedIds || []);
+  const [sources, setSources] = useState(editMode?.sources || []);
   const [showRelatedSelector, setShowRelatedSelector] = useState(false);
   const [showStructured, setShowStructured] = useState(!!(editMode?.hypothesis || editMode?.supporting || editMode?.counter));
+  const [showSources, setShowSources] = useState(false);
   const [saving, setSaving] = useState(false);
   const [titleExplicitlySet, setTitleExplicitlySet] = useState(!!editMode?.title);
+  const [newSource, setNewSource] = useState({ title: '', author: '', url: '', type: 'article', notes: '' });
 
   const title = titleExplicitlySet
     ? (editMode?.title || generateTitle(content))
@@ -71,6 +75,20 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
     setShowStructured(true);
   };
 
+  const handleAddSource = () => {
+    if (!newSource.title.trim()) return;
+    setSources(prev => [...prev, {
+      id: uuidv4(),
+      ...newSource,
+      dateAdded: new Date().toISOString()
+    }]);
+    setNewSource({ title: '', author: '', url: '', type: 'article', notes: '' });
+  };
+
+  const handleRemoveSource = (id) => {
+    setSources(prev => prev.filter(s => s.id !== id));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!content.trim() && !hypothesis.trim()) return;
@@ -87,7 +105,8 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
         supporting: supporting.trim(),
         counter: counter.trim(),
         status,
-        relatedIds
+        relatedIds,
+        sources
       });
       if (!editMode) {
         setAuthor('');
@@ -97,7 +116,9 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
         setCounter('');
         setStatus('needs-research');
         setRelatedIds([]);
+        setSources([]);
         setShowStructured(false);
+        setShowSources(false);
       }
     } catch (error) {
       console.error('Failed to save:', error);
@@ -153,7 +174,7 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Tulis hipotesa kamu di sini...&#10;&#10;Atau mulai dengan H:, A:, K: untuk struktur otomatis"
+          placeholder="Tulis hipotesa kamu di sini..."
           rows={6}
           className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:border-purple-500 transition-all resize-none"
         />
@@ -269,6 +290,122 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
         </div>
       </div>
 
+      {/* Sources / Referensi */}
+      <div className="glass-card rounded-2xl p-5">
+        <button
+          type="button"
+          onClick={() => setShowSources(!showSources)}
+          className="w-full flex items-center justify-between"
+        >
+          <span className="font-semibold text-slate-200 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-cyan-400" />
+            📚 Sumber / Referensi ({sources.length})
+          </span>
+          {showSources ? (
+            <Minus className="w-5 h-5 text-cyan-400" />
+          ) : (
+            <Plus className="w-5 h-5 text-cyan-400" />
+          )}
+        </button>
+
+        {showSources && (
+          <div className="mt-4 space-y-4 animate-fade-in">
+            {/* Existing Sources */}
+            {sources.length > 0 && (
+              <div className="space-y-2">
+                {sources.map((source) => {
+                  const sourceType = SOURCE_TYPES.find(t => t.key === source.type) || SOURCE_TYPES[0];
+                  return (
+                    <div key={source.id} className="p-3 rounded-xl bg-white/5 border border-cyan-500/20">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm">{sourceType.icon}</span>
+                            <span className="font-semibold text-white text-sm truncate">{source.title}</span>
+                          </div>
+                          {source.author && (
+                            <p className="text-xs text-slate-400">{source.author}</p>
+                          )}
+                          {source.url && (
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 mt-1"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Buka Link
+                            </a>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSource(source.id)}
+                          className="p-2 rounded-lg hover:bg-rose-500/20 text-rose-400 transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Add New Source */}
+            <div className="space-y-3 pt-3 border-t border-white/10">
+              <p className="text-xs text-slate-500 font-semibold">Tambah Sumber Baru:</p>
+
+              <input
+                type="text"
+                value={newSource.title}
+                onChange={(e) => setNewSource(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Judul sumber (wajib)"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 text-sm focus:border-cyan-500 transition-all"
+              />
+
+              <input
+                type="text"
+                value={newSource.author}
+                onChange={(e) => setNewSource(prev => ({ ...prev, author: e.target.value }))}
+                placeholder="Penulis / Pengarang"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 text-sm focus:border-cyan-500 transition-all"
+              />
+
+              <input
+                type="url"
+                value={newSource.url}
+                onChange={(e) => setNewSource(prev => ({ ...prev, url: e.target.value }))}
+                placeholder="Link URL (opsional)"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 text-sm focus:border-cyan-500 transition-all"
+              />
+
+              <select
+                value={newSource.type}
+                onChange={(e) => setNewSource(prev => ({ ...prev, type: e.target.value }))}
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-cyan-500 transition-all"
+              >
+                {SOURCE_TYPES.map((type) => (
+                  <option key={type.key} value={type.key} className="bg-slate-900">
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={handleAddSource}
+                disabled={!newSource.title.trim()}
+                className="w-full py-3 rounded-xl bg-cyan-600/20 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-600/30 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Sumber
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Related Hypotheses */}
       <div className="glass-card rounded-2xl p-5">
         <button
@@ -276,7 +413,10 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
           onClick={() => setShowRelatedSelector(!showRelatedSelector)}
           className="w-full flex items-center justify-between"
         >
-          <span className="font-semibold text-slate-200">🔗 Ide Terkait ({relatedIds.length})</span>
+          <span className="font-semibold text-slate-200 flex items-center gap-2">
+            <Link2 className="w-5 h-5 text-purple-400" />
+            🔗 Hipotesa Terkait ({relatedIds.length})
+          </span>
           {showRelatedSelector ? (
             <Minus className="w-5 h-5 text-purple-400" />
           ) : (

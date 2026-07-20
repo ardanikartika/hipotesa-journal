@@ -7,6 +7,17 @@
  */
 
 /**
+ * @typedef {Object} Source
+ * @property {string} id
+ * @property {string} title - Judul sumber
+ * @property {string} author - Penulis/pengarang
+ * @property {string} url - Link sumber (opsional)
+ * @property {string} type - Jenis: 'book', 'article', 'video', 'website', 'other'
+ * @property {string} notes - Catatan tambahan
+ * @property {string} dateAdded
+ */
+
+/**
  * @typedef {'needs-research' | 'proven' | 'broken'} ValidationStatus
  */
 
@@ -22,6 +33,7 @@
  * @property {ValidationStatus} status
  * @property {string[]} relatedIds
  * @property {TimelineUpdate[]} timeline
+ * @property {Source[]} sources
  * @property {string} createdAt
  * @property {string} updatedAt
  */
@@ -57,3 +69,13 @@ export const STATUS_COLORS = {
 };
 
 export const VALIDATION_STATUSES = ['needs-research', 'proven', 'broken'];
+
+export const SOURCE_TYPES = [
+  { key: 'book', label: '📚 Buku', icon: '📚' },
+  { key: 'article', label: '📄 Artikel', icon: '📄' },
+  { key: 'video', label: '🎥 Video', icon: '🎥' },
+  { key: 'website', label: '🌐 Website', icon: '🌐' },
+  { key: 'journal', label: '📖 Jurnal', icon: '📖' },
+  { key: 'interview', label: '🎤 Wawancara', icon: '🎤' },
+  { key: 'other', label: '📌 Lainnya', icon: '📌' }
+];
