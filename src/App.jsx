@@ -5,7 +5,7 @@ import BottomNav from './components/BottomNav';
 import InputForm from './components/InputForm';
 import Archive from './components/Archive';
 import HypothesisDetail from './components/HypothesisDetail';
-import { Sun, Moon, Plus, BookOpen } from 'lucide-react';
+import { Sun, Moon, Plus } from 'lucide-react';
 
 function AppContent() {
   const {
@@ -60,9 +60,7 @@ function AppContent() {
     if (selectedHypothesis) {
       await addTimeline(selectedHypothesis.id, content);
       const updated = getHypothesisById(selectedHypothesis.id);
-      if (updated) {
-        setSelectedHypothesis(updated);
-      }
+      if (updated) setSelectedHypothesis(updated);
     }
   }, [selectedHypothesis, addTimeline, getHypothesisById]);
 
@@ -91,11 +89,7 @@ function AppContent() {
     handleSelectHypothesis(id);
   }, [handleSelectHypothesis]);
 
-  const handleRefresh = useCallback(() => {
-    refreshData();
-  }, [refreshData]);
-
-  const handleBackFromDetail = useCallback(() => {
+  const handleBack = useCallback(() => {
     setShowDetail(false);
     setSelectedHypothesis(null);
   }, []);
@@ -115,76 +109,61 @@ function AppContent() {
         onAddTimeline={handleAddTimeline}
         onNavigateToRelated={handleNavigateToRelated}
         onGetRandom={handleGetRandom}
-        onBack={handleBackFromDetail}
+        onBack={handleBack}
       />
     );
   }
 
-  // Input/Edit View
+  // Input View
   if (activeTab === 'input') {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
-        <header className="sticky top-0 z-30 px-5 py-4 flex items-center justify-between" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-          <h1 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {editingHypothesis ? 'Edit Jurnal' : 'Jurnal Baru'}
+      <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
+        <header className="sticky top-0 z-30 px-5 py-4 flex items-center justify-between"
+          style={{ background: 'var(--white)', borderBottom: '1px solid var(--border)' }}>
+          <h1 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>
+            {editingHypothesis ? 'Edit' : 'New'}
           </h1>
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
-            >
+            <button onClick={toggleTheme}
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'var(--slate-100)', color: 'var(--text-secondary)' }}>
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
           </div>
         </header>
 
-        <main className="px-5 py-6">
+        <main className="px-5 py-6 max-w-2xl mx-auto">
           <InputForm
             onSave={handleSave}
             existingHypotheses={hypotheses}
             editMode={editingHypothesis || undefined}
-            onCancel={editingHypothesis ? handleCancelEdit : undefined}
           />
         </main>
 
-        <BottomNav
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          isConnected={isConnected}
-          onRefresh={handleRefresh}
-        />
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} isConnected={isConnected} onRefresh={refreshData} />
       </div>
     );
   }
 
-  // Archive View (Default)
+  // Archive View
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
       {/* Header */}
-      <header className="sticky top-0 z-30 px-5 py-4" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+      <header className="sticky top-0 z-30 px-5 py-4" style={{ background: 'var(--white)', borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Hipotesa
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-              {hypotheses.length} jurnal
-            </p>
+            <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Hipotesa</h1>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{hypotheses.length} items</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
-            >
+            <button onClick={toggleTheme}
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'var(--slate-100)', color: 'var(--text-secondary)' }}>
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <button
-              onClick={() => setActiveTab('input')}
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: 'var(--accent)', color: 'white' }}
-            >
+            <button onClick={() => setActiveTab('input')}
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'var(--indigo-500)', color: 'white' }}>
               <Plus className="w-5 h-5" />
             </button>
           </div>
@@ -193,32 +172,23 @@ function AppContent() {
 
       {/* Content */}
       <main className="px-5 py-6">
-        {/* Connection Status */}
         {!isConnected && (
-          <div
-            className="mb-4 p-3 rounded-xl text-sm flex items-center gap-2"
-            style={{ background: 'rgba(255, 149, 0, 0.1)', color: 'var(--amber)' }}
-          >
-            <span className="w-2 h-2 rounded-full bg-current" />
-            Offline — Data dari cache lokal
+          <div className="mb-4 p-3 rounded-lg text-sm flex items-center gap-2"
+            style={{ background: 'var(--amber-100)', color: 'var(--amber-500)' }}>
+            Offline
           </div>
         )}
 
         {error && (
-          <div
-            className="mb-4 p-3 rounded-xl text-sm"
-            style={{ background: 'rgba(255, 59, 48, 0.1)', color: 'var(--rose)' }}
-          >
+          <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'var(--rose-100)', color: 'var(--rose-500)' }}>
             {error}
           </div>
         )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div
-              className="w-8 h-8 rounded-full animate-spin"
-              style={{ borderWidth: '2px', borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}
-            />
+            <div className="w-8 h-8 rounded-full animate-spin"
+              style={{ borderWidth: '2px', borderColor: 'var(--border)', borderTopColor: 'var(--indigo-500)' }} />
           </div>
         ) : (
           <Archive
@@ -229,13 +199,7 @@ function AppContent() {
         )}
       </main>
 
-      {/* Bottom Navigation */}
-      <BottomNav
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        isConnected={isConnected}
-        onRefresh={handleRefresh}
-      />
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} isConnected={isConnected} onRefresh={refreshData} />
     </div>
   );
 }
