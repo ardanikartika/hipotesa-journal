@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { STATUS_LABELS, STATUS_COLORS, SOURCE_TYPES } from '../types';
-import { formatDateTime, copyToClipboard, formatForWhatsApp } from '../utils/helpers';
-import { Copy, Shuffle, Trash2, Edit3, Plus, Clock, Link2, Check, ArrowLeft, BookOpen, ExternalLink, Share2 } from 'lucide-react';
+import { useState } from 'react';
+import { STATUS_LABELS } from '../types';
+import { formatDateTime } from '../utils/helpers';
+import { Copy, Shuffle, Trash2, Edit3, Plus, Clock, Link2, Check, ArrowLeft, BookOpen, ExternalLink, Share2, Quote, Eye, EyeOff } from 'lucide-react';
 
 export default function HypothesisDetail({
   hypothesis,
@@ -18,21 +18,66 @@ export default function HypothesisDetail({
   const [addingTimeline, setAddingTimeline] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-
-  const statusStyle = STATUS_COLORS[hypothesis.status];
 
   const relatedHypotheses = hypothesis.relatedIds
     ?.map(id => allHypotheses.find(h => h.id === id))
     .filter(Boolean) || [];
 
-  const handleCopy = async () => {
-    const text = formatForWhatsApp(hypothesis);
-    const success = await copyToClipboard(text);
-    if (success) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  // Generate APA Citation
+  const generateCitation = () => {
+    const author = hypothesis.author || 'Anonim';
+    const year = new Date(hypothesis.createdAt).getFullYear();
+    const title = hypothesis.title || 'Tanpa Judul';
+    return `${author} (${year}). ${title}. Diambil dari Hipotesa Journal.`;
+  };
+
+  // Generate MLA Citation
+  const generateMLACitation = () => {
+    const author = hypothesis.author || 'Anonim';
+    const title = hypothesis.title || 'Tanpa Judul';
+    const date = formatDateTime(hypothesis.createdAt);
+    return `"${title}." Hipotesa Journal, ${date}, oleh ${author}.`;
+  };
+
+  const handleCopyCitation = async (format = 'APA') => {
+    const citation = format === 'APA' ? generateCitation() : generateMLACitation();
+    await navigator.clipboard.writeText(citation);
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+      setShowShareMenu(false);
+    }, 2000);
+  };
+
+  const handleCopyWhatsApp = async () => {
+    const lines = [
+      '📝 HIPOTESA',
+      '',
+      `${hypothesis.title || 'Tanpa Judul'}`,
+      `👤 Pencetus: ${hypothesis.author || 'Anonim'}`,
+      `🔍 Status: ${STATUS_LABELS[hypothesis.status] || 'Butuh Riset'}`,
+      '',
+      hypothesis.hypothesis && '📌 Hipotesa Utama:',
+      hypothesis.hypothesis && hypothesis.hypothesis,
+      '',
+      hypothesis.supporting && '👍 Argumen Pendukung:',
+      hypothesis.supporting && hypothesis.supporting,
+      '',
+      hypothesis.counter && '📌 Sanggahan / Kontra:',
+      hypothesis.counter && hypothesis.counter,
+      '',
+      '---',
+      'Dicatat via Hipotesa Journal'
+    ].filter(Boolean).join('\n');
+
+    await navigator.clipboard.writeText(lines);
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+      setShowShareMenu(false);
+    }, 2000);
   };
 
   const handleAddTimeline = async () => {
@@ -59,182 +104,237 @@ export default function HypothesisDetail({
   };
 
   return (
-    <div className="min-h-screen pb-24 animate-fade-in">
-      {/* Header */}
-      <div className="sticky top-0 z-10 glass-dark p-4 flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors"
+    <div className={`min-h-screen animate-fade-in ${zenMode ? 'zen-mode' : ''}`} style={{ background: 'var(--bg-primary)' }}>
+      {/* Header - Hidden in Zen Mode */}
+      {!zenMode && (
+        <header
+          className="sticky top-0 z-10 border-b px-5 py-4"
+          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}
         >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm">Kembali</span>
-        </button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onGetRandom}
-            className="p-2 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
-            title="Buka Hipotesa Acak"
-          >
-            <Shuffle className="w-5 h-5" />
-          </button>
-          <button
-            onClick={onEdit}
-            className="p-2 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-all"
-            title="Edit"
-          >
-            <Edit3 className="w-5 h-5" />
-          </button>
-          <button
-            onClick={handleDelete}
-            className={`p-2 rounded-lg transition-all ${
-              confirmDelete
-                ? 'bg-rose-500/20 text-rose-400'
-                : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
-            }`}
-            title={confirmDelete ? 'Klik lagi untuk konfirmasi hapus' : 'Hapus'}
-          >
-            {confirmDelete ? <Check className="w-5 h-5" /> : <Trash2 className="w-5 h-5" />}
-          </button>
-        </div>
-      </div>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-sm font-medium transition-all hover:scale-105"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Kembali
+            </button>
 
-      <div className="p-4 space-y-6">
+            <div className="flex items-center gap-2">
+              {/* Zen Mode Toggle */}
+              <button
+                onClick={() => setZenMode(true)}
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                style={{ background: 'var(--bg-tertiary)' }}
+                title="Mode Zen"
+              >
+                <Eye className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+              </button>
+
+              <button
+                onClick={onGetRandom}
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                style={{ background: 'var(--bg-tertiary)' }}
+                title="Jurnal Acak"
+              >
+                <Shuffle className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+              </button>
+
+              <button
+                onClick={onEdit}
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                style={{ background: 'var(--bg-tertiary)' }}
+                title="Edit"
+              >
+                <Edit3 className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+              </button>
+
+              <button
+                onClick={handleDelete}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                  confirmDelete ? 'scale-110' : 'hover:scale-105'
+                }`}
+                style={{
+                  background: confirmDelete ? '#FEE2E2' : 'var(--bg-tertiary)',
+                  color: confirmDelete ? '#DC2626' : 'var(--text-secondary)'
+                }}
+                title={confirmDelete ? 'Klik lagi untuk konfirmasi' : 'Hapus'}
+              >
+                {confirmDelete ? <Check className="w-5 h-5" /> : <Trash2 className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* Zen Mode Exit Button */}
+      {zenMode && (
+        <button
+          onClick={() => setZenMode(false)}
+          className="fixed top-4 right-4 z-50 w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 animate-fade-in"
+          style={{ background: 'var(--bg-tertiary)' }}
+        >
+          <EyeOff className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+        </button>
+      )}
+
+      {/* Content */}
+      <main className={`max-w-3xl mx-auto px-5 py-8 ${zenMode ? 'pt-16' : ''}`}>
         {/* Title & Meta */}
-        <div>
-          <h1 className="font-serif text-2xl font-bold text-slate-100 mb-3">
+        <div className="mb-8">
+          <h1 className="font-serif text-3xl font-semibold mb-4 leading-tight" style={{ color: 'var(--text-primary)' }}>
             {hypothesis.title || 'Tanpa Judul'}
           </h1>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
             {hypothesis.author && (
-              <span className="flex items-center gap-1">
-                <span className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ background: 'var(--emerald-100)', color: 'var(--emerald-900)' }}>
                   👤
                 </span>
                 {hypothesis.author}
               </span>
             )}
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1.5">
               <Clock className="w-4 h-4" />
               {formatDateTime(hypothesis.createdAt)}
             </span>
           </div>
-          <span className={`inline-block mt-3 px-3 py-1 rounded-full text-sm font-medium ${statusStyle.bg} ${statusStyle.text}`}>
-            {STATUS_LABELS[hypothesis.status]}
+
+          <span
+            className={`badge mt-4 ${
+              hypothesis.status === 'proven' ? 'badge-emerald'
+                : hypothesis.status === 'broken' ? 'badge-red'
+                : 'badge-amber'
+            }`}
+          >
+            {STATUS_LABELS[hypothesis.status] || 'Butuh Riset'}
           </span>
         </div>
 
         {/* Content */}
         {hypothesis.content && (
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-            <p className="text-slate-200 whitespace-pre-wrap">{hypothesis.content}</p>
+          <div className="mb-8">
+            <p className="font-content" style={{ color: 'var(--text-secondary)' }}>
+              {hypothesis.content}
+            </p>
           </div>
         )}
 
         {/* Structured Content */}
         {(hypothesis.hypothesis || hypothesis.supporting || hypothesis.counter) && (
-          <div className="space-y-4">
-            {/* Hypothesis */}
+          <div className="space-y-4 mb-8">
             {hypothesis.hypothesis && (
-              <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-8 h-8 flex items-center justify-center rounded-xl bg-purple-600 text-white font-bold">H</span>
-                  <span className="text-sm font-bold text-purple-300">Hipotesa Utama</span>
+              <div className="card p-6 border-l-4" style={{ borderLeftColor: '#8B5CF6' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ background: '#8B5CF6' }}>
+                    H
+                  </span>
+                  <span className="font-medium" style={{ color: '#8B5CF6' }}>Hipotesa Utama</span>
                 </div>
-                <p className="text-slate-200 whitespace-pre-wrap">{hypothesis.hypothesis}</p>
+                <p className="font-content" style={{ color: 'var(--text-secondary)' }}>
+                  {hypothesis.hypothesis}
+                </p>
               </div>
             )}
 
-            {/* Supporting */}
             {hypothesis.supporting && (
-              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-8 h-8 flex items-center justify-center rounded-xl bg-green-600 text-white font-bold">A</span>
-                  <span className="text-sm font-bold text-green-300">Argumen Pendukung</span>
+              <div className="card p-6 border-l-4" style={{ borderLeftColor: '#22C55E' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ background: '#22C55E' }}>
+                    A
+                  </span>
+                  <span className="font-medium" style={{ color: '#22C55E' }}>Argumen Pendukung</span>
                 </div>
-                <p className="text-slate-200 whitespace-pre-wrap">{hypothesis.supporting}</p>
+                <p className="font-content" style={{ color: 'var(--text-secondary)' }}>
+                  {hypothesis.supporting}
+                </p>
               </div>
             )}
 
-            {/* Counter */}
             {hypothesis.counter && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-8 h-8 flex items-center justify-center rounded-xl bg-amber-600 text-white font-bold">K</span>
-                  <span className="text-sm font-bold text-amber-300">Sanggahan / Kontra</span>
+              <div className="card p-6 border-l-4" style={{ borderLeftColor: '#F59E0B' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ background: '#F59E0B' }}>
+                    K
+                  </span>
+                  <span className="font-medium" style={{ color: '#F59E0B' }}>Sanggahan / Kontra</span>
                 </div>
-                <p className="text-slate-200 whitespace-pre-wrap">{hypothesis.counter}</p>
+                <p className="font-content" style={{ color: 'var(--text-secondary)' }}>
+                  {hypothesis.counter}
+                </p>
               </div>
             )}
           </div>
         )}
 
-        {/* Sources / Referensi */}
-        {hypothesis.sources && hypothesis.sources.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-200">
-              <BookOpen className="w-5 h-5 text-cyan-400" />
-              📚 Sumber / Referensi ({hypothesis.sources.length})
+        {/* Sources */}
+        {hypothesis.sources?.length > 0 && (
+          <div className="mb-8">
+            <h3 className="flex items-center gap-2 font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+              <BookOpen className="w-5 h-5" style={{ color: '#06B6D4' }} />
+              Sumber Referensi
             </h3>
-            <div className="space-y-2">
-              {hypothesis.sources.map((source) => {
-                const sourceType = SOURCE_TYPES.find(t => t.key === source.type) || SOURCE_TYPES[0];
-                return (
-                  <div
-                    key={source.id}
-                    className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">{sourceType.icon}</span>
-                          <span className="font-semibold text-white">{source.title}</span>
-                        </div>
-                        {source.author && (
-                          <p className="text-sm text-slate-400">{source.author}</p>
-                        )}
-                        {source.notes && (
-                          <p className="text-xs text-slate-500 mt-2 italic">"{source.notes}"</p>
-                        )}
-                      </div>
-                      {source.url && (
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 transition-all"
-                        >
-                          <ExternalLink className="w-5 h-5" />
-                        </a>
+            <div className="space-y-3">
+              {hypothesis.sources.map((source) => (
+                <div
+                  key={source.id}
+                  className="card p-4"
+                  style={{ borderLeftColor: '#06B6D4', borderLeftWidth: '3px' }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <p className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                        {source.title}
+                      </p>
+                      {source.author && (
+                        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                          {source.author}
+                        </p>
+                      )}
+                      {source.notes && (
+                        <p className="text-sm mt-2 italic" style={{ color: 'var(--text-tertiary)' }}>
+                          "{source.notes}"
+                        </p>
                       )}
                     </div>
-                    <p className="text-xs text-slate-600 mt-2">
-                      Ditambahkan: {formatDateTime(source.dateAdded)}
-                    </p>
+                    {source.url && (
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                        style={{ background: 'var(--emerald-50)', color: 'var(--emerald-900)' }}
+                      >
+                        <ExternalLink className="w-5 h-5" />
+                      </a>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         {/* Related Hypotheses */}
         {relatedHypotheses.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-200">
-              <Link2 className="w-5 h-5 text-purple-400" />
-              🔗 Hipotesa Terkait ({relatedHypotheses.length})
+          <div className="mb-8">
+            <h3 className="flex items-center gap-2 font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+              <Link2 className="w-5 h-5" style={{ color: '#8B5CF6' }} />
+              Berkaitan dengan ({relatedHypotheses.length})
             </h3>
             <div className="space-y-2">
               {relatedHypotheses.map((related) => (
                 <button
                   key={related.id}
                   onClick={() => onNavigateToRelated(related.id)}
-                  className="w-full p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left"
+                  className="w-full card card-hover p-4 text-left"
                 >
-                  <p className="text-sm text-slate-200 font-semibold truncate">
+                  <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                     {related.title || 'Tanpa Judul'}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
                     oleh {related.author || 'Anonim'} • {formatDateTime(related.createdAt)}
                   </p>
                 </button>
@@ -244,15 +344,16 @@ export default function HypothesisDetail({
         )}
 
         {/* Timeline */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-200">
-              <Clock className="w-5 h-5 text-purple-400" />
-              📅 Perkembangan / Log Update
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="flex items-center gap-2 font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <Clock className="w-5 h-5" style={{ color: 'var(--emerald-600)' }} />
+              Perkembangan / Log Update
             </h3>
             <button
               onClick={() => setShowTimelineInput(!showTimelineInput)}
-              className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 bg-purple-500/10 px-3 py-1.5 rounded-lg transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:scale-105"
+              style={{ background: 'var(--emerald-50)', color: 'var(--emerald-900)' }}
             >
               <Plus className="w-4 h-4" />
               Tambah
@@ -260,19 +361,22 @@ export default function HypothesisDetail({
           </div>
 
           {showTimelineInput && (
-            <div className="p-4 rounded-xl bg-white/5 border border-purple-500/30 animate-fade-in space-y-3">
+            <div
+              className="p-4 rounded-xl mb-4 animate-fade-up"
+              style={{ background: 'var(--bg-tertiary)' }}
+            >
               <textarea
                 value={timelineContent}
                 onChange={(e) => setTimelineContent(e.target.value)}
                 placeholder="Catat perkembangan atau temuan baru..."
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-100 placeholder-slate-500 text-sm resize-none focus:border-purple-500"
+                className="text-sm mb-3"
               />
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleAddTimeline}
                   disabled={addingTimeline || !timelineContent.trim()}
-                  className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+                  className="btn btn-primary text-sm py-2 px-4"
                 >
                   {addingTimeline ? 'Menyimpan...' : '💾 Simpan'}
                 </button>
@@ -281,7 +385,7 @@ export default function HypothesisDetail({
                     setShowTimelineInput(false);
                     setTimelineContent('');
                   }}
-                  className="px-4 py-2 rounded-lg bg-white/10 text-slate-400 text-sm hover:bg-white/20 transition-colors"
+                  className="btn btn-outline text-sm py-2 px-4"
                 >
                   Batal
                 </button>
@@ -289,74 +393,93 @@ export default function HypothesisDetail({
             </div>
           )}
 
-          {/* Timeline Entries */}
-          {hypothesis.timeline && hypothesis.timeline.length > 0 ? (
-            <div className="space-y-2">
+          {hypothesis.timeline?.length > 0 ? (
+            <div className="space-y-3">
               {[...hypothesis.timeline].reverse().map((entry) => (
                 <div
                   key={entry.id}
-                  className="p-4 rounded-xl bg-white/5 border-l-4 border-l-purple-500"
+                  className="p-4 rounded-xl border-l-4"
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    borderLeftColor: 'var(--emerald-600)'
+                  }}
                 >
-                  <p className="text-sm text-slate-200 whitespace-pre-wrap">{entry.content}</p>
-                  <p className="text-xs text-slate-500 mt-2">
+                  <p className="font-content" style={{ color: 'var(--text-secondary)' }}>
+                    {entry.content}
+                  </p>
+                  <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
                     📅 {formatDateTime(entry.date)}
                   </p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-500 italic py-4 text-center bg-white/5 rounded-xl">
+            <p className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
               Belum ada perkembangan tercatat
             </p>
           )}
         </div>
-      </div>
+      </main>
 
-      {/* Bottom Action - Share Menu */}
-      <div className="fixed bottom-16 left-0 right-0 p-4 glass-dark">
-        <div className="relative">
-          {/* Main Share Button */}
+      {/* Bottom Share Bar */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-30 border-t p-4"
+        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}
+      >
+        <div className="max-w-3xl mx-auto relative">
           <button
             onClick={() => setShowShareMenu(!showShareMenu)}
-            className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all glass-card ${
-              showShareMenu
-                ? 'border-purple-500 bg-purple-500/20 text-purple-300'
-                : 'hover:border-purple-500/50 text-slate-300'
+            className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+              showShareMenu ? 'scale-100' : 'hover:scale-[1.01]'
             }`}
+            style={{
+              background: copied ? 'var(--success)' : 'var(--emerald-900)',
+              color: 'white'
+            }}
           >
-            <Share2 className="w-5 h-5" />
-            {showShareMenu ? 'Tutup Menu' : 'Bagikan'}
+            {copied ? (
+              <>
+                <Check className="w-5 h-5" />
+                Tersalin!
+              </>
+            ) : (
+              <>
+                <Share2 className="w-5 h-5" />
+                {showShareMenu ? 'Tutup' : 'Bagikan'}
+              </>
+            )}
           </button>
 
-          {/* Share Menu Dropdown */}
           {showShareMenu && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 p-3 rounded-xl glass-card border border-purple-500/30 animate-fade-in space-y-2">
+            <div
+              className="absolute bottom-full left-0 right-0 mb-2 p-3 rounded-xl animate-fade-up space-y-2"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--card-shadow-hover)'
+              }}
+            >
               <button
-                onClick={() => {
-                  handleCopy();
-                  setShowShareMenu(false);
-                }}
-                className={`w-full py-3 rounded-lg flex items-center justify-center gap-2 transition-all ${
-                  copied
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-white/5 hover:bg-white/10 text-slate-300'
-                }`}
+                onClick={handleCopyWhatsApp}
+                className="w-full py-3 rounded-xl font-medium text-left px-4 transition-all hover:scale-[1.01]"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
               >
-                {copied ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    Tersalin!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5" />
-                    Salin ke Clipboard
-                  </>
-                )}
+                📱 Salin untuk WhatsApp
               </button>
-              <p className="text-xs text-slate-500 text-center">
-                Bisa paste ke WhatsApp, Telegram, dll
-              </p>
+              <button
+                onClick={() => handleCopyCitation('APA')}
+                className="w-full py-3 rounded-xl font-medium text-left px-4 transition-all hover:scale-[1.01]"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+              >
+                📚 Salin Sitasi APA
+              </button>
+              <button
+                onClick={() => handleCopyCitation('MLA')}
+                className="w-full py-3 rounded-xl font-medium text-left px-4 transition-all hover:scale-[1.01]"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+              >
+                📖 Salin Sitasi MLA
+              </button>
             </div>
           )}
         </div>

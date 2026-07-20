@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Save, Sparkles, User, Plus, Minus, BookOpen, Link2, Trash2, ExternalLink } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Save, Sparkles, User, Plus, Minus, BookOpen, Link2, Trash2, ExternalLink, Mic, MicOff, Check, AlertCircle } from 'lucide-react';
 import VoiceInput from './VoiceInput';
 import { SOURCE_TYPES } from '../types';
 import { generateTitle } from '../utils/helpers';
@@ -18,9 +18,45 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
   const [showStructured, setShowStructured] = useState(!!(editMode?.hypothesis || editMode?.supporting || editMode?.counter));
   const [showSources, setShowSources] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // idle, saving, saved
   const [newSource, setNewSource] = useState({ title: '', author: '', url: '', type: 'article', notes: '' });
 
+  const autoSaveTimeoutRef = useRef(null);
+  const lastSavedRef = useRef('');
+
   const title = editMode?.title || generateTitle(content);
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (!editMode) return; // Only auto-save for new entries
+
+    const currentContent = JSON.stringify({ author, content, hypothesis, supporting, counter, status });
+
+    if (currentContent === lastSavedRef.current) return;
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    if (author || content || hypothesis) {
+      setAutoSaveStatus('saving');
+
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        setAutoSaveStatus('saved');
+        lastSavedRef.current = currentContent;
+
+        setTimeout(() => {
+          setAutoSaveStatus('idle');
+        }, 2000);
+      }, 1500);
+    }
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [author, content, hypothesis, supporting, counter, status, editMode]);
 
   const handleVoiceTranscript = useCallback((text) => {
     setContent(prev => prev ? `${prev} ${text}` : text);
@@ -99,6 +135,8 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
         setSources([]);
         setShowStructured(false);
         setShowSources(false);
+        lastSavedRef.current = '';
+        setAutoSaveStatus('idle');
       }
     } catch (error) {
       console.error('Failed to save:', error);
@@ -112,37 +150,34 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
   };
 
   const statusOptions = [
-    { key: 'needs-research', label: 'Research', icon: '🔬' },
-    { key: 'proven', label: 'Proven', icon: '✅' },
-    { key: 'broken', label: 'Broken', icon: '❌' }
+    { key: 'needs-research', label: 'Butuh Riset', icon: '🔬' },
+    { key: 'proven', label: 'Terbukti', icon: '✅' },
+    { key: 'broken', label: 'Terpatahkan', icon: '❌' }
   ];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-28">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="font-serif font-semibold text-2xl mb-1" style={{ color: 'var(--text-primary)' }}>
-          {editMode ? 'Edit Journal' : 'New Journal'}
+        <h2 className="text-2xl font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+          {editMode ? 'Edit Jurnal' : 'Jurnal Baru'}
         </h2>
         <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-          Document your hypothesis
+          Dokumentasikan hipotesa kamu
         </p>
       </div>
 
       {/* Author */}
       <div className="card p-5">
-        <label
-          className="flex items-center gap-2 text-sm font-medium mb-3"
-          style={{ color: 'var(--text-secondary)' }}
-        >
+        <label className="flex items-center gap-2 text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
           <User className="w-4 h-4" />
-          Author
+          Pencetus Ide
         </label>
         <input
           type="text"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
-          placeholder="Who's thinking this?"
+          placeholder="Siapa yang mencetuskan ide ini?"
           className="text-base"
         />
       </div>
@@ -150,20 +185,17 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
       {/* Main Content */}
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <label
-            className="flex items-center gap-2 text-sm font-medium"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            <Sparkles className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-            Content
+          <label className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+            <Sparkles className="w-4 h-4" style={{ color: 'var(--amber-600)' }} />
+            Isi Hipotesa
           </label>
           <VoiceInput onTranscript={handleVoiceTranscript} />
         </div>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Write your hypothesis here..."
-          rows={5}
+          placeholder="Tulis hipotesa kamu di sini..."
+          rows={6}
           className="text-base"
         />
       </div>
@@ -174,13 +206,13 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
         onClick={handleAutoStructure}
         className="w-full py-4 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 font-medium transition-all hover:scale-[1.01]"
         style={{
-          borderColor: 'var(--accent)',
-          color: 'var(--accent)',
-          background: 'var(--accent-soft)'
+          borderColor: 'var(--emerald-600)',
+          color: 'var(--emerald-900)',
+          background: 'var(--emerald-50)'
         }}
       >
         <Sparkles className="w-5 h-5" />
-        Auto Structure (H • A • K)
+        Struktur Otomatis (H • A • K)
       </button>
 
       {/* H-A-K Sections */}
@@ -191,81 +223,72 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
           className="w-full flex items-center justify-between card p-4"
         >
           <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-            Structure
+            Struktur H-A-K
           </span>
           {showStructured ? (
-            <Minus className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+            <Minus className="w-5 h-5" style={{ color: 'var(--emerald-600)' }} />
           ) : (
-            <Plus className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+            <Plus className="w-5 h-5" style={{ color: 'var(--emerald-600)' }} />
           )}
         </button>
 
         {showStructured && (
           <div className="space-y-4 animate-fade-up">
             {/* Hypothesis */}
-            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#8b5cf6' }}>
+            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#8B5CF6' }}>
               <label className="flex items-center gap-2 mb-3">
-                <span
-                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white"
-                  style={{ background: '#8b5cf6' }}
-                >
+                <span className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ background: '#8B5CF6' }}>
                   H
                 </span>
                 <div>
-                  <span className="font-medium" style={{ color: '#8b5cf6' }}>Hypothesis</span>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>What are you proving?</p>
+                  <span className="font-medium" style={{ color: '#8B5CF6' }}>Hipotesa Utama</span>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Apa yang ingin kamu buktikan?</p>
                 </div>
               </label>
               <textarea
                 value={hypothesis}
                 onChange={(e) => setHypothesis(e.target.value)}
-                placeholder="Main hypothesis..."
+                placeholder="Contoh: Matahari terbit dari timur setiap hari..."
                 rows={2}
                 className="text-sm"
               />
             </div>
 
             {/* Supporting */}
-            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#22c55e' }}>
+            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#22C55E' }}>
               <label className="flex items-center gap-2 mb-3">
-                <span
-                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white"
-                  style={{ background: '#22c55e' }}
-                >
+                <span className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ background: '#22C55E' }}>
                   A
                 </span>
                 <div>
-                  <span className="font-medium" style={{ color: '#22c55e' }}>Arguments</span>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Evidence supporting</p>
+                  <span className="font-medium" style={{ color: '#22C55E' }}>Argumen Pendukung</span>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Bukti yang mendukung</p>
                 </div>
               </label>
               <textarea
                 value={supporting}
                 onChange={(e) => setSupporting(e.target.value)}
-                placeholder="Supporting arguments..."
+                placeholder="Contoh: Terdokumentasi secara historis..."
                 rows={2}
                 className="text-sm"
               />
             </div>
 
             {/* Counter */}
-            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#f59e0b' }}>
+            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#F59E0B' }}>
               <label className="flex items-center gap-2 mb-3">
-                <span
-                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white"
-                  style={{ background: '#f59e0b' }}
-                >
+                <span className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ background: '#F59E0B' }}>
                   K
                 </span>
                 <div>
-                  <span className="font-medium" style={{ color: '#f59e0b' }}>Counter</span>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Arguments against</p>
+                  <span className="font-medium" style={{ color: '#F59E0B' }}>Sanggahan / Kontra</span>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Argumen yang menentang</p>
                 </div>
               </label>
               <textarea
                 value={counter}
                 onChange={(e) => setCounter(e.target.value)}
-                placeholder="Counter arguments..."
+                placeholder="Contoh: Teori bumi datar..."
                 rows={2}
                 className="text-sm"
               />
@@ -276,11 +299,8 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
 
       {/* Status */}
       <div className="card p-5">
-        <label
-          className="text-sm font-medium mb-3 block"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          Status
+        <label className="text-sm font-medium mb-3 block" style={{ color: 'var(--text-secondary)' }}>
+          Status Validasi
         </label>
         <div className="grid grid-cols-3 gap-3">
           {statusOptions.map((opt) => (
@@ -291,14 +311,14 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
               className="p-4 rounded-xl text-center transition-all"
               style={{
                 background: status === opt.key
-                  ? opt.key === 'proven' ? 'rgba(34, 197, 94, 0.12)'
-                    : opt.key === 'broken' ? 'rgba(244, 63, 94, 0.12)'
-                    : 'var(--accent-soft)'
+                  ? opt.key === 'proven' ? 'var(--emerald-100)'
+                    : opt.key === 'broken' ? '#FEE2E2'
+                    : 'var(--amber-100)'
                   : 'var(--bg-tertiary)',
                 color: status === opt.key
-                  ? opt.key === 'proven' ? '#22c55e'
-                    : opt.key === 'broken' ? '#f43f5e'
-                    : 'var(--accent)'
+                  ? opt.key === 'proven' ? 'var(--emerald-900)'
+                    : opt.key === 'broken' ? '#DC2626'
+                    : '#996633'
                   : 'var(--text-secondary)'
               }}
             >
@@ -317,13 +337,13 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
           className="w-full flex items-center justify-between"
         >
           <span className="flex items-center gap-2 font-medium" style={{ color: 'var(--text-primary)' }}>
-            <BookOpen className="w-5 h-5" style={{ color: '#06b6d4' }} />
-            Sources ({sources.length})
+            <BookOpen className="w-5 h-5" style={{ color: '#06B6D4' }} />
+            Sumber / Referensi ({sources.length})
           </span>
           {showSources ? (
-            <Minus className="w-5 h-5" style={{ color: '#06b6d4' }} />
+            <Minus className="w-5 h-5" style={{ color: '#06B6D4' }} />
           ) : (
-            <Plus className="w-5 h-5" style={{ color: '#06b6d4' }} />
+            <Plus className="w-5 h-5" style={{ color: '#06B6D4' }} />
           )}
         </button>
 
@@ -336,44 +356,42 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
                   return (
                     <div
                       key={source.id}
-                      className="p-3 rounded-xl border"
-                      style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border)' }}
+                      className="p-3 rounded-xl flex items-start justify-between gap-3"
+                      style={{ background: 'var(--bg-tertiary)' }}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span>{type.icon}</span>
-                            <span className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
-                              {source.title}
-                            </span>
-                          </div>
-                          {source.author && (
-                            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                              {source.author}
-                            </p>
-                          )}
-                          {source.url && (
-                            <a
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs flex items-center gap-1 mt-1"
-                              style={{ color: '#06b6d4' }}
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              Open link
-                            </a>
-                          )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span>{type.icon}</span>
+                          <span className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                            {source.title}
+                          </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSource(source.id)}
-                          className="p-1.5 rounded-lg transition-all hover:bg-red-100"
-                          style={{ color: '#f43f5e' }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {source.author && (
+                          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            {source.author}
+                          </p>
+                        )}
+                        {source.url && (
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs flex items-center gap-1 mt-1"
+                            style={{ color: '#06B6D4' }}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Buka Link
+                          </a>
+                        )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSource(source.id)}
+                        className="p-2 rounded-lg transition-all hover:bg-red-100"
+                        style={{ color: '#DC2626' }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   );
                 })}
@@ -381,25 +399,28 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
             )}
 
             <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+              <p className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
+                Tambah Sumber Baru:
+              </p>
               <input
                 type="text"
                 value={newSource.title}
                 onChange={(e) => setNewSource(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Source title"
+                placeholder="Judul sumber (wajib)"
                 className="text-sm"
               />
               <input
                 type="text"
                 value={newSource.author}
                 onChange={(e) => setNewSource(prev => ({ ...prev, author: e.target.value }))}
-                placeholder="Author"
+                placeholder="Penulis / Pengarang"
                 className="text-sm"
               />
               <input
                 type="url"
                 value={newSource.url}
                 onChange={(e) => setNewSource(prev => ({ ...prev, url: e.target.value }))}
-                placeholder="URL (optional)"
+                placeholder="Link URL (opsional)"
                 className="text-sm"
               />
               <select
@@ -417,11 +438,11 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
                 disabled={!newSource.title.trim()}
                 className="w-full py-2.5 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: 'var(--accent-soft)',
-                  color: 'var(--accent)'
+                  background: 'var(--emerald-50)',
+                  color: 'var(--emerald-900)'
                 }}
               >
-                Add Source
+                Tambah Sumber
               </button>
             </div>
           </div>
@@ -436,13 +457,13 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
           className="w-full flex items-center justify-between"
         >
           <span className="flex items-center gap-2 font-medium" style={{ color: 'var(--text-primary)' }}>
-            <Link2 className="w-5 h-5" style={{ color: '#8b5cf6' }} />
-            Related ({relatedIds.length})
+            <Link2 className="w-5 h-5" style={{ color: '#8B5CF6' }} />
+            Jurnal Terkait ({relatedIds.length})
           </span>
           {showRelatedSelector ? (
-            <Minus className="w-5 h-5" style={{ color: '#8b5cf6' }} />
+            <Minus className="w-5 h-5" style={{ color: '#8B5CF6' }} />
           ) : (
-            <Plus className="w-5 h-5" style={{ color: '#8b5cf6' }} />
+            <Plus className="w-5 h-5" style={{ color: '#8B5CF6' }} />
           )}
         </button>
 
@@ -461,10 +482,10 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
                     checked={relatedIds.includes(h.id)}
                     onChange={() => toggleRelated(h.id)}
                     className="w-4 h-4 rounded"
-                    style={{ accentColor: 'var(--accent)' }}
+                    style={{ accentColor: 'var(--emerald-900)' }}
                   />
                   <span className="text-sm truncate flex-1" style={{ color: 'var(--text-primary)' }}>
-                    {h.title || 'Untitled'}
+                    {h.title || 'Tanpa Judul'}
                   </span>
                 </label>
               ))}
@@ -484,20 +505,40 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
               className="w-5 h-5 rounded-full animate-spin"
               style={{ borderWidth: '2px', borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }}
             />
-            Saving...
+            Menyimpan...
           </>
         ) : (
           <>
             <Save className="w-5 h-5" />
-            {editMode ? 'Update Journal' : 'Save Journal'}
+            {editMode ? 'Update Jurnal' : 'Simpan Jurnal'}
           </>
         )}
       </button>
 
-      {/* Title Preview */}
-      <p className="text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>
-        Title: <span style={{ color: 'var(--text-secondary)' }}>{title}</span>
-      </p>
+      {/* Title Preview & Auto-save */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+          Judul: <span style={{ color: 'var(--text-secondary)' }}>{title}</span>
+        </p>
+
+        {/* Auto-save Indicator */}
+        {editMode && (
+          <div className="autosave-indicator">
+            {autoSaveStatus === 'saving' && (
+              <>
+                <span className="w-2 h-2 rounded-full" style={{ background: 'var(--amber-500)' }} />
+                <span>Menyimpan...</span>
+              </>
+            )}
+            {autoSaveStatus === 'saved' && (
+              <>
+                <Check className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
+                <span style={{ color: 'var(--success)' }}>Tersimpan otomatis</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </form>
   );
 }

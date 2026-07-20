@@ -1,15 +1,15 @@
-import { PenLine, Archive, RefreshCw } from 'lucide-react';
+import { PenLine, Archive, RefreshCw, BookOpen } from 'lucide-react';
 
 export default function BottomNav({ activeTab, onTabChange, isConnected, onRefresh }) {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 safe-bottom border-t"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 safe-bottom border-t"
       style={{
         background: 'var(--bg-secondary)',
         borderColor: 'var(--border)'
       }}
     >
-      <div className="flex items-center justify-around h-16 max-w-2xl mx-auto px-4">
+      <div className="flex items-center justify-around h-16 px-4">
         {/* Refresh */}
         <button
           onClick={onRefresh}
@@ -27,14 +27,14 @@ export default function BottomNav({ activeTab, onTabChange, isConnected, onRefre
             activeTab === 'input' ? 'scale-110' : ''
           }`}
           style={{
-            background: activeTab === 'input' ? 'var(--accent-soft)' : 'transparent',
-            color: activeTab === 'input' ? 'var(--accent)' : 'var(--text-tertiary)'
+            background: activeTab === 'input' ? 'var(--emerald-100)' : 'transparent',
+            color: activeTab === 'input' ? 'var(--emerald-900)' : 'var(--text-tertiary)'
           }}
         >
           <div
             className="p-2.5 rounded-xl transition-all"
             style={{
-              background: activeTab === 'input' ? 'var(--accent)' : 'var(--bg-tertiary)'
+              background: activeTab === 'input' ? 'var(--emerald-900)' : 'var(--bg-tertiary)'
             }}
           >
             <PenLine
@@ -42,26 +42,24 @@ export default function BottomNav({ activeTab, onTabChange, isConnected, onRefre
               style={{ color: activeTab === 'input' ? 'white' : 'var(--text-secondary)' }}
             />
           </div>
-          <span className="text-[10px] font-semibold" style={{ color: 'inherit' }}>
-            New
-          </span>
+          <span className="text-[10px] font-semibold">Baru</span>
         </button>
 
         {/* Archive */}
         <button
           onClick={() => onTabChange('archive')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+          className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all ${
             activeTab === 'archive' ? 'scale-110' : ''
           }`}
           style={{
-            background: activeTab === 'archive' ? 'var(--accent-soft)' : 'transparent',
-            color: activeTab === 'archive' ? 'var(--accent)' : 'var(--text-tertiary)'
+            background: activeTab === 'archive' ? 'var(--emerald-100)' : 'transparent',
+            color: activeTab === 'archive' ? 'var(--emerald-900)' : 'var(--text-tertiary)'
           }}
         >
           <div
             className="p-2.5 rounded-xl transition-all"
             style={{
-              background: activeTab === 'archive' ? 'var(--accent)' : 'var(--bg-tertiary)'
+              background: activeTab === 'archive' ? 'var(--emerald-900)' : 'var(--bg-tertiary)'
             }}
           >
             <Archive
@@ -69,9 +67,7 @@ export default function BottomNav({ activeTab, onTabChange, isConnected, onRefre
               style={{ color: activeTab === 'archive' ? 'white' : 'var(--text-secondary)' }}
             />
           </div>
-          <span className="text-[10px] font-semibold" style={{ color: 'inherit' }}>
-            Archive
-          </span>
+          <span className="text-[10px] font-semibold">Arsip</span>
         </button>
 
         {/* Status */}
@@ -79,12 +75,12 @@ export default function BottomNav({ activeTab, onTabChange, isConnected, onRefre
           <div className="relative">
             <div
               className="w-2.5 h-2.5 rounded-full"
-              style={{ background: isConnected ? '#22c55e' : 'var(--slate-400)' }}
+              style={{ background: isConnected ? 'var(--success)' : 'var(--slate-400)' }}
             />
             {isConnected && (
               <div
-                className="absolute inset-0 rounded-full pulse-ring"
-                style={{ background: '#22c55e' }}
+                className="absolute inset-0 rounded-full animate-ping"
+                style={{ background: 'var(--success)', opacity: 0.5 }}
               />
             )}
           </div>
@@ -92,7 +88,7 @@ export default function BottomNav({ activeTab, onTabChange, isConnected, onRefre
             className="text-[10px] font-medium"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            {isConnected ? 'Live' : 'Cache'}
+            {isConnected ? 'Online' : 'Cache'}
           </span>
         </div>
       </div>

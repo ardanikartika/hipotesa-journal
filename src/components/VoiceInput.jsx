@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 
 export default function VoiceInput({ onTranscript, disabled }) {
@@ -44,36 +44,22 @@ export default function VoiceInput({ onTranscript, disabled }) {
     };
 
     recognition.onerror = (event) => {
-      console.log('Speech recognition error:', event.error);
-      // Don't stop on these errors
       if (event.error === 'no-speech' || event.error === 'aborted') {
         return;
       }
-      // For other errors, try to restart if not manually stopped
-      if (!isManualStopRef.current && recognitionRef.current) {
-        try {
-          // Don't restart on error
-          setIsListening(false);
-        } catch (e) {
-          // Ignore
-        }
-      }
+      setIsListening(false);
     };
 
     recognition.onend = () => {
-      // Only set listening to false if manually stopped, or if there's a final transcript
       if (isManualStopRef.current) {
         setIsListening(false);
         isManualStopRef.current = false;
-      } else if (!finalTranscriptRef.current) {
-        // If ended without manual stop and no transcript, restart
+      } else {
         try {
           recognitionRef.current?.start();
         } catch (e) {
           setIsListening(false);
         }
-      } else {
-        setIsListening(false);
       }
     };
 
@@ -95,16 +81,13 @@ export default function VoiceInput({ onTranscript, disabled }) {
     if (!recognitionRef.current || !isSupported) return;
 
     if (isListening) {
-      // Manual stop
       isManualStopRef.current = true;
       try {
         recognitionRef.current.stop();
       } catch (e) {
-        console.error('Failed to stop recognition:', e);
         setIsListening(false);
       }
     } else {
-      // Start recording
       try {
         finalTranscriptRef.current = '';
         recognitionRef.current.start();
@@ -116,7 +99,10 @@ export default function VoiceInput({ onTranscript, disabled }) {
 
   if (!isSupported) {
     return (
-      <div className="flex items-center gap-2 text-amber-400 text-sm bg-amber-500/10 px-3 py-2 rounded-xl">
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium"
+        style={{ background: 'var(--amber-100)', color: '#996633' }}
+      >
         <MicOff className="w-4 h-4" />
         <span>Tidak didukung</span>
       </div>
@@ -129,43 +115,42 @@ export default function VoiceInput({ onTranscript, disabled }) {
         type="button"
         onClick={toggleListening}
         disabled={disabled}
-        className={`relative flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+        className={`relative w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
           isListening
-            ? 'bg-rose-600 shadow-lg shadow-rose-500/40'
-            : 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/40 hover:shadow-purple-500/60'
+            ? 'shadow-lg'
+            : ''
         }`}
+        style={{
+          background: isListening ? '#DC2626' : 'var(--emerald-900)',
+          boxShadow: isListening ? '0 4px 12px rgba(220, 38, 38, 0.4)' : '0 2px 8px rgba(26, 77, 46, 0.3)'
+        }}
       >
         {isListening ? (
           <>
-            <Mic className="w-6 h-6 text-white" />
+            <Mic className="w-5 h-5 text-white" />
             {/* Waveform Animation */}
-            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-end gap-1 h-8">
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-end gap-0.5 h-6">
               {[...Array(8)].map((_, i) => (
                 <div
                   key={i}
-                  className="waveform-bar w-1.5 bg-rose-400 rounded-full"
-                  style={{ height: '6px' }}
+                  className="waveform-bar w-1 bg-white rounded-full"
+                  style={{ height: '4px' }}
                 />
               ))}
             </div>
           </>
         ) : (
-          <Mic className="w-6 h-6 text-white" />
-        )}
-
-        {/* Pulse ring when recording */}
-        {isListening && (
-          <span className="absolute inset-0 rounded-2xl border-4 border-rose-400 pulse-recording" />
+          <Mic className="w-5 h-5 text-white" />
         )}
       </button>
 
       {isListening && (
-        <div className="flex items-center gap-2 text-rose-400 animate-fade-in">
-          <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+        <div className="flex items-center gap-2 animate-fade-in" style={{ color: '#DC2626' }}>
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: '#DC2626' }} />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ backgroundColor: '#DC2626' }} />
           </span>
-          <span className="text-sm font-semibold">Tekan mic untuk stop</span>
+          <span className="text-sm font-medium">Tekan untuk stop</span>
         </div>
       )}
     </div>
