@@ -1,283 +1,180 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Filter, Shuffle, Download, Upload, X } from 'lucide-react';
-import { STATUS_LABELS } from '../types';
+import { useState, useMemo } from 'react';
 import HypothesisCard from './HypothesisCard';
+import { Search, Shuffle, Download, Upload, X } from 'lucide-react';
 import api from '../utils/api';
 
-export default function Archive({
-  hypotheses,
-  onSelectHypothesis,
-  onGetRandom,
-  onImport
-}) {
+export default function Archive({ hypotheses, onSelectHypothesis, onGetRandom }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterAuthor, setFilterAuthor] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  // Get unique authors
-  const authors = useMemo(() => {
-    const authorSet = new Set(hypotheses.map(h => h.author).filter(Boolean));
-    return Array.from(authorSet).sort();
-  }, [hypotheses]);
-
-  // Filter hypotheses
   const filteredHypotheses = useMemo(() => {
     return hypotheses.filter(h => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesSearch =
-          h.title?.toLowerCase().includes(query) ||
-          h.content?.toLowerCase().includes(query) ||
-          h.author?.toLowerCase().includes(query) ||
-          h.hypothesis?.toLowerCase().includes(query) ||
-          h.supporting?.toLowerCase().includes(query) ||
-          h.counter?.toLowerCase().includes(query);
-        if (!matchesSearch) return false;
-      }
+      const matchesSearch = searchQuery === '' ||
+        h.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        h.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        h.author?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        h.hypothesis?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // Status filter
-      if (filterStatus !== 'all' && h.status !== filterStatus) {
-        return false;
-      }
+      const matchesStatus = filterStatus === 'all' || h.status === filterStatus;
 
-      // Author filter
-      if (filterAuthor !== 'all' && h.author !== filterAuthor) {
-        return false;
-      }
-
-      return true;
+      return matchesSearch && matchesStatus;
     });
-  }, [hypotheses, searchQuery, filterStatus, filterAuthor]);
+  }, [hypotheses, searchQuery, filterStatus]);
 
   const handleExport = async () => {
     try {
-      await api.exportData();
-    } catch (error) {
-      console.error('Export failed:', error);
+      const data = await api.exportData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hipotesa-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
     }
   };
 
-  const handleImport = async (e) => {
-    const file = e.target.files?.[0];
+  const handleImport = async (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     setImporting(true);
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      await onImport(data);
-      e.target.value = '';
-    } catch (error) {
-      console.error('Import failed:', error);
-      alert('Gagal import data. Pastikan file JSON valid.');
+      await api.importData(data);
+      window.location.reload();
+    } catch (err) {
+      console.error('Import failed:', err);
+      alert('Gagal import data');
     } finally {
       setImporting(false);
     }
   };
 
-  const clearFilters = () => {
-    setSearchQuery('');
-    setFilterStatus('all');
-    setFilterAuthor('all');
-  };
-
-  const hasActiveFilters = searchQuery || filterStatus !== 'all' || filterAuthor !== 'all';
+  const statusCounts = useMemo(() => ({
+    all: hypotheses.length,
+    'needs-research': hypotheses.filter(h => h.status === 'needs-research').length,
+    'proven': hypotheses.filter(h => h.status === 'proven').length,
+    'broken': hypotheses.filter(h => h.status === 'broken').length,
+  }), [hypotheses]);
 
   return (
     <div className="space-y-4 pb-24">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="font-serif text-2xl font-bold text-slate-100">
-          Arsip Hipotesa
-        </h1>
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-display font-bold text-xl text-[var(--text-primary)]">
+            Arsip
+          </h2>
+          <p className="text-sm text-[var(--text-tertiary)]">
+            {filteredHypotheses.length} dari {hypotheses.length} catatan
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
           <button
             onClick={onGetRandom}
-            className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all"
-            title="Buka Hipotesa Acak"
+            className="w-10 h-10 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--amber)] transition-all"
+            title="Catatan acak"
           >
-            <Shuffle className="w-5 h-5" />
+            <Shuffle className="w-4 h-4" />
           </button>
           <button
             onClick={handleExport}
-            className="p-2 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
-            title="Export Backup"
+            className="w-10 h-10 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--green)] transition-all"
+            title="Export"
           >
-            <Download className="w-5 h-5" />
+            <Download className="w-4 h-4" />
           </button>
-          <label className="p-2 rounded-lg text-slate-400 hover:text-primary-400 hover:bg-primary-500/10 transition-all cursor-pointer">
-            <Upload className="w-5 h-5" />
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              className="hidden"
-              disabled={importing}
-            />
+          <label className="w-10 h-10 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all cursor-pointer">
+            <Upload className="w-4 h-4" />
+            <input type="file" accept=".json" onChange={handleImport} className="hidden" disabled={importing} />
           </label>
         </div>
       </div>
 
-      {/* Search Bar */}
+      {/* Search */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-tertiary)]" />
         <input
           type="text"
+          placeholder="Cari hipotesa..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Cari hipotesa, nama, atau isi..."
-          className="w-full pl-12 pr-10 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-100 placeholder-slate-500 focus:border-accent-500 transition-colors"
+          className="pl-12 pr-10"
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
           >
             <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* Filter Toggle */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-            showFilters || hasActiveFilters
-              ? 'bg-accent-500/20 text-accent-400'
-              : 'bg-white/5 text-slate-400 hover:text-slate-300'
-          }`}
-        >
-          <Filter className="w-4 h-4" />
-          Filter
-          {hasActiveFilters && (
-            <span className="w-2 h-2 rounded-full bg-accent-400" />
-          )}
-        </button>
-
-        {hasActiveFilters && (
+      {/* Filter Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
+        {[
+          { key: 'all', label: 'Semua', count: statusCounts.all },
+          { key: 'needs-research', label: 'Riset', icon: '🔍', count: statusCounts['needs-research'] },
+          { key: 'proven', label: 'Benar', icon: '✅', count: statusCounts['proven'] },
+          { key: 'broken', label: 'Patah', icon: '❌', count: statusCounts['broken'] },
+        ].map((filter) => (
           <button
-            onClick={clearFilters}
-            className="text-sm text-slate-400 hover:text-slate-200"
+            key={filter.key}
+            onClick={() => setFilterStatus(filter.key)}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              filterStatus === filter.key
+                ? filter.key === 'proven' ? 'bg-[var(--green)] text-white'
+                  : filter.key === 'broken' ? 'bg-[var(--rose)] text-white'
+                  : 'bg-[var(--accent)] text-white'
+                : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
+            }`}
           >
-            Reset
+            {filter.icon} {filter.label} ({filter.count})
           </button>
-        )}
-
-        <span className="text-sm text-slate-500">
-          {filteredHypotheses.length} dari {hypotheses.length}
-        </span>
+        ))}
       </div>
 
-      {/* Filters Panel */}
-      {showFilters && (
-        <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-4 animate-fade-in">
-          {/* Status Filter */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-400">Status</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFilterStatus('all')}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  filterStatus === 'all'
-                    ? 'bg-white/20 text-slate-200'
-                    : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                }`}
-              >
-                Semua
-              </button>
-              {['needs-research', 'proven', 'broken'].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setFilterStatus(status)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    filterStatus === status
-                      ? 'bg-accent-500/20 text-accent-400'
-                      : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                  }`}
-                >
-                  {STATUS_LABELS[status]}
-                </button>
-              ))}
-            </div>
+      {/* Empty State */}
+      {filteredHypotheses.length === 0 && (
+        <div className="text-center py-16">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--bg-tertiary)] mx-auto mb-4 flex items-center justify-center">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[var(--text-tertiary)]">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-
-          {/* Author Filter */}
-          {authors.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-400">Pencetus</label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setFilterAuthor('all')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    filterAuthor === 'all'
-                      ? 'bg-white/20 text-slate-200'
-                      : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                  }`}
-                >
-                  Semua
-                </button>
-                {authors.map((author) => (
-                  <button
-                    key={author}
-                    onClick={() => setFilterAuthor(author)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      filterAuthor === author
-                        ? 'bg-accent-500/20 text-accent-400'
-                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                    }`}
-                  >
-                    {author}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <h3 className="font-semibold text-[var(--text-primary)] mb-1">
+            {searchQuery || filterStatus !== 'all' ? 'Tidak ditemukan' : 'Belum ada hipotesa'}
+          </h3>
+          <p className="text-sm text-[var(--text-tertiary)]">
+            {searchQuery || filterStatus !== 'all' ? 'Coba kata kunci lain' : 'Mulai catat hipotesa pertamamu'}
+          </p>
         </div>
       )}
 
-      {/* Hypothesis List */}
-      {filteredHypotheses.length > 0 ? (
-        <div className="space-y-3">
-          {filteredHypotheses.map((hypothesis, index) => (
-            <div
-              key={hypothesis.id}
-              className={`animate-fade-in stagger-${Math.min(index + 1, 5)}`}
-              style={{ animationDelay: `${index * 50}ms`, opacity: 0 }}
-            >
-              <HypothesisCard
-                hypothesis={hypothesis}
-                onClick={() => onSelectHypothesis(hypothesis.id)}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-16 space-y-4">
-          <div className="text-6xl opacity-30">📝</div>
-          <div>
-            <p className="text-slate-300 font-medium">
-              {hasActiveFilters ? 'Tidak ada hasil' : 'Belum ada hipotesa'}
-            </p>
-            <p className="text-slate-500 text-sm mt-1">
-              {hasActiveFilters
-                ? 'Coba ubah filter pencarian'
-                : 'Mulai dengan membuat hipotesa baru'}
-            </p>
+      {/* List */}
+      <div className="space-y-3">
+        {filteredHypotheses.map((hypothesis, index) => (
+          <div
+            key={hypothesis.id}
+            className="animate-fade-in"
+            style={{ animationDelay: `${index * 50}ms` }}
+          >
+            <HypothesisCard
+              hypothesis={hypothesis}
+              onClick={() => onSelectHypothesis(hypothesis.id)}
+            />
           </div>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2 rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 transition-colors"
-            >
-              Reset Filter
-            </button>
-          )}
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }

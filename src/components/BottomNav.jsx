@@ -1,69 +1,52 @@
-import React from 'react';
 import { PenLine, Archive, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 export default function BottomNav({ activeTab, onTabChange, isConnected, onRefresh }) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bottom-nav safe-bottom">
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-4">
-        {/* Refresh Button */}
+        {/* Refresh */}
         <button
           onClick={onRefresh}
-          className="flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 hover:bg-white/10 active:scale-95"
-          title="Refresh Data"
+          className="nav-item"
+          title="Refresh"
         >
-          <RefreshCw className={`w-5 h-5 ${isConnected ? 'text-emerald-400' : 'text-amber-400'}`} />
-          <span className="text-[10px] mt-1 text-slate-400 font-medium">
-            {isConnected ? 'Online' : 'Offline'}
+          <RefreshCw className={`w-5 h-5 ${isConnected ? '' : 'text-[var(--amber)]'}`} />
+          <span className="text-[10px]">
+            {isConnected ? 'Sync' : 'Offline'}
           </span>
         </button>
 
-        {/* Input Tab */}
+        {/* Input */}
         <button
           onClick={() => onTabChange('input')}
-          className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 active:scale-95 ${
-            activeTab === 'input'
-              ? 'text-white'
-              : 'text-slate-500 hover:text-slate-300'
-          }`}
+          className={`nav-item ${activeTab === 'input' ? 'active' : ''}`}
         >
-          <div className={`p-3 rounded-2xl transition-all ${
-            activeTab === 'input'
-              ? 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-lg glow-purple'
-              : 'bg-white/5'
-          }`}>
+          <div className={`p-2.5 rounded-xl transition-all ${activeTab === 'input' ? 'bg-[var(--accent)] text-white' : ''}`}>
             <PenLine className="w-5 h-5" />
           </div>
-          <span className="text-[10px] mt-1 font-semibold">Input Baru</span>
+          <span className="text-[10px]">Input</span>
         </button>
 
-        {/* Archive Tab */}
+        {/* Archive */}
         <button
           onClick={() => onTabChange('archive')}
-          className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 active:scale-95 ${
-            activeTab === 'archive'
-              ? 'text-white'
-              : 'text-slate-500 hover:text-slate-300'
-          }`}
+          className={`nav-item ${activeTab === 'archive' ? 'active' : ''}`}
         >
-          <div className={`p-3 rounded-2xl transition-all ${
-            activeTab === 'archive'
-              ? 'bg-gradient-to-br from-indigo-600 to-purple-600 shadow-lg'
-              : 'bg-white/5'
-          }`}>
+          <div className={`p-2.5 rounded-xl transition-all ${activeTab === 'archive' ? 'bg-[var(--accent)] text-white' : ''}`}>
             <Archive className="w-5 h-5" />
           </div>
-          <span className="text-[10px] mt-1 font-semibold">Arsip</span>
+          <span className="text-[10px]">Arsip</span>
         </button>
 
-        {/* Connection Status */}
-        <div className="flex flex-col items-center justify-center p-2">
+        {/* Status */}
+        <div className="nav-item">
           {isConnected ? (
-            <Wifi className="w-5 h-5 text-emerald-400" />
+            <Wifi className="w-5 h-5 text-[var(--green)]" />
           ) : (
-            <WifiOff className="w-5 h-5 text-rose-400" />
+            <WifiOff className="w-5 h-5 text-[var(--rose)]" />
           )}
-          <span className="text-[10px] mt-1 text-slate-400 font-medium">
-            {isConnected ? 'Sync' : 'Cache'}
+          <span className="text-[10px]">
+            {isConnected ? 'Online' : 'Cache'}
           </span>
         </div>
       </div>

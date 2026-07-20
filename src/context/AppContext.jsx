@@ -1,7 +1,40 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 
 const AppContext = createContext(undefined);
+
+// Theme Management
+const ThemeContext = createContext(undefined);
+
+export function useTheme() {
+  return useContext(ThemeContext);
+}
+
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('hipotesa-theme');
+      if (saved) return saved;
+      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('hipotesa-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  }, []);
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
 
 export function AppProvider({ children }) {
   const [hypotheses, setHypotheses] = useState([]);
@@ -32,7 +65,6 @@ export function AppProvider({ children }) {
         setHypotheses(data.hypotheses || []);
         setLastSync(data.lastUpdated);
       } else {
-        // Try to use cached data from localStorage
         const cached = localStorage.getItem('hipotesa_cache');
         if (cached) {
           const parsed = JSON.parse(cached);
@@ -50,11 +82,9 @@ export function AppProvider({ children }) {
     }
   }, [checkConnection]);
 
-  // Initial load and periodic sync
   useEffect(() => {
     refreshData();
 
-    // Sync every 30 seconds when connected
     const syncInterval = setInterval(async () => {
       if (await checkConnection()) {
         try {
@@ -83,7 +113,6 @@ export function AppProvider({ children }) {
     return () => clearInterval(syncInterval);
   }, [lastSync, checkConnection, refreshData]);
 
-  // Cache data to localStorage when it changes
   useEffect(() => {
     if (hypotheses.length > 0) {
       localStorage.setItem('hipotesa_cache', JSON.stringify({

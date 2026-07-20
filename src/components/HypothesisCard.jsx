@@ -1,64 +1,30 @@
-import React from 'react';
-import { STATUS_LABELS } from '../types';
 import { formatDate } from '../utils/helpers';
-import { Clock, Link2, User, Sparkles } from 'lucide-react';
+import { Clock, User, Link2, BookOpen } from 'lucide-react';
 
-export default function HypothesisCard({ hypothesis, onClick, compact = false }) {
+export default function HypothesisCard({ hypothesis, onClick }) {
   const getStatusBadge = (status) => {
     const badges = {
-      'needs-research': { class: 'status-research', icon: '🔍', label: 'Riset' },
-      'proven': { class: 'status-proven', icon: '✅', label: 'Benar' },
-      'broken': { class: 'status-broken', icon: '❌', label: 'Patah' }
+      'needs-research': { label: 'Riset', class: 'badge-purple' },
+      'proven': { label: 'Benar', class: 'badge-green' },
+      'broken': { label: 'Patah', class: 'badge-rose' }
     };
     return badges[status] || badges['needs-research'];
   };
 
   const badge = getStatusBadge(hypothesis.status);
 
-  if (compact) {
-    return (
-      <button
-        onClick={onClick}
-        className="w-full text-left glass-card rounded-2xl p-4 transition-all duration-300 card-hover animate-fade-in"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-white truncate mb-2">
-              {hypothesis.title || 'Tanpa Judul'}
-            </h3>
-            <div className="flex items-center gap-4 text-xs text-slate-500">
-              {hypothesis.author && (
-                <span className="flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  {hypothesis.author}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {formatDate(hypothesis.createdAt)}
-              </span>
-            </div>
-          </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${badge.class}`}>
-            {badge.icon} {badge.label}
-          </span>
-        </div>
-      </button>
-    );
-  }
-
   return (
     <button
       onClick={onClick}
-      className="w-full text-left glass-card rounded-2xl p-5 transition-all duration-300 card-hover animate-fade-in"
+      className="w-full text-left card p-4 card-hover"
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-lg text-white line-clamp-2 mb-2">
+          <h3 className="font-semibold text-[var(--text-primary)] line-clamp-2 mb-1">
             {hypothesis.title || 'Tanpa Judul'}
           </h3>
-          <div className="flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-3 text-xs text-[var(--text-tertiary)]">
             {hypothesis.author && (
               <span className="flex items-center gap-1">
                 <User className="w-3 h-3" />
@@ -69,62 +35,50 @@ export default function HypothesisCard({ hypothesis, onClick, compact = false })
               <Clock className="w-3 h-3" />
               {formatDate(hypothesis.createdAt)}
             </span>
-            {hypothesis.relatedIds && hypothesis.relatedIds.length > 0 && (
-              <span className="flex items-center gap-1">
-                <Link2 className="w-3 h-3" />
-                {hypothesis.relatedIds.length}
-              </span>
-            )}
           </div>
         </div>
-        <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${badge.class}`}>
-          {badge.icon} {badge.label}
+        <span className={`badge ${badge.class}`}>
+          {badge.label}
         </span>
       </div>
 
-      {/* Content Preview */}
+      {/* Preview */}
       {hypothesis.content && (
-        <p className="text-sm text-slate-400 line-clamp-2 mb-4">
+        <p className="text-sm text-[var(--text-secondary)] line-clamp-2 mb-3">
           {hypothesis.content}
         </p>
       )}
 
-      {/* H-A-K Badges */}
-      <div className="flex flex-wrap gap-2">
+      {/* Tags */}
+      <div className="flex flex-wrap items-center gap-2">
         {hypothesis.hypothesis && (
-          <span className="badge-h px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-            <span className="font-bold">H</span>
-            {hypothesis.hypothesis.substring(0, 25)}...
+          <span className="badge badge-purple text-xs">
+            H: {hypothesis.hypothesis.substring(0, 20)}...
           </span>
         )}
         {hypothesis.supporting && (
-          <span className="badge-a px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-            <span className="font-bold">A</span>
-            {hypothesis.supporting.substring(0, 25)}...
+          <span className="badge badge-green text-xs">
+            A: {hypothesis.supporting.substring(0, 20)}...
           </span>
         )}
         {hypothesis.counter && (
-          <span className="badge-k px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-            <span className="font-bold">K</span>
-            {hypothesis.counter.substring(0, 25)}...
+          <span className="badge badge-amber text-xs">
+            K: {hypothesis.counter.substring(0, 20)}...
           </span>
         )}
-        {!hypothesis.hypothesis && !hypothesis.supporting && !hypothesis.counter && hypothesis.content && (
-          <span className="px-3 py-1 rounded-lg text-xs text-slate-500 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />
-            Tanpa struktur
+        {hypothesis.relatedIds?.length > 0 && (
+          <span className="badge badge-cyan text-xs">
+            <Link2 className="w-3 h-3" />
+            {hypothesis.relatedIds.length}
+          </span>
+        )}
+        {hypothesis.sources?.length > 0 && (
+          <span className="badge badge-cyan text-xs">
+            <BookOpen className="w-3 h-3" />
+            {hypothesis.sources.length}
           </span>
         )}
       </div>
-
-      {/* Timeline indicator */}
-      {hypothesis.timeline && hypothesis.timeline.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-white/10">
-          <span className="text-xs text-slate-600">
-            📅 {hypothesis.timeline.length} perkembangan tercatat
-          </span>
-        </div>
-      )}
     </button>
   );
 }
