@@ -7,20 +7,102 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-// PostgreSQL connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
+// Parse DATABASE_URL manually for better compatibility
+function parseDatabaseUrl(url) {
+  try {
+    const match = url.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+    if (match) {
+      return {
+        user: match[1],
+        password: match[2],
+        host: match[3],
+        port: match[4],
+        database: match[5]
+      };
+    }
+  } catch (e) {
+    console.error('Failed to parse DATABASE_URL:', e);
   }
-});
+  return null;
+}
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+let pool = null;
+let dbReady = false;
+
+function initPool() {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.log('⚠️ DATABASE_URL not set, using fallback JSON storage');
+    return;
+  }
+
+  const config = parseDatabaseUrl(dbUrl);
+  if (config) {
+    pool = new Pool({
+      user: config.user,
+      password: config.password,
+      host: config.host,
+      port: parseInt(config.port),
+      database: config.database,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    });
+
+    pool.on('error', (err) => {
+      console.error('Unexpected PostgreSQL error:', err);
+    });
+  }
+}
+
+initPool();
+
+// Fallback JSON file storage
+const fs = require('fs');
+const path = require('path');
+const DATA_FILE = path.join(__dirname, 'data', 'hypotheses.json');
+const dataDir = path.dirname(DATA_FILE);
+
+function ensureDataDir() {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  if (!fs.existsSync(DATA_FILE)) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ hypotheses: [] }));
+  }
+}
+ensureDataDir();
+
+function readJsonData() {
+  try {
+    const data = fs.readFileSync(DATA_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    return { hypotheses: [] };
+  }
+}
+
+function writeJsonData(data) {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Error writing JSON:', error);
+    return false;
+  }
+}
 
 // Initialize database tables
 async function initDB() {
+  if (!pool) {
+    console.log('📁 Using JSON file storage (no database)');
+    dbReady = true;
+    return;
+  }
+
   const client = await pool.connect();
   try {
     await client.query(`
@@ -31,70 +113,104 @@ async function initDB() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('✅ Database tables initialized');
+    dbReady = true;
+    console.log('✅ PostgreSQL connected and tables ready');
   } catch (err) {
     console.error('❌ Database initialization error:', err);
+    console.log('📁 Falling back to JSON file storage');
+    dbReady = true;
   } finally {
     client.release();
   }
 }
 
-initDB();
+// Start DB init async
+initDB().catch(err => {
+  console.error('DB init error:', err);
+  dbReady = true;
+});
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
 
 // Helper: Get all hypotheses
 async function getAllHypotheses() {
-  try {
-    const result = await pool.query(
-      'SELECT data FROM hypotheses ORDER BY created_at DESC'
-    );
-    const hypotheses = result.rows.map(row => row.data);
-    return { hypotheses, lastUpdated: new Date().toISOString() };
-  } catch (err) {
-    console.error('Error getting hypotheses:', err);
-    return { hypotheses: [], lastUpdated: null };
+  if (pool && dbReady) {
+    try {
+      const result = await pool.query(
+        'SELECT data FROM hypotheses ORDER BY created_at DESC'
+      );
+      const hypotheses = result.rows.map(row => row.data);
+      return { hypotheses, lastUpdated: new Date().toISOString() };
+    } catch (err) {
+      console.error('PostgreSQL error, using JSON:', err);
+    }
   }
+  // Fallback to JSON
+  const data = readJsonData();
+  return data;
 }
 
 // Helper: Get single hypothesis
 async function getHypothesisById(id) {
-  try {
-    const result = await pool.query(
-      'SELECT data FROM hypotheses WHERE id = $1',
-      [id]
-    );
-    return result.rows[0]?.data || null;
-  } catch (err) {
-    console.error('Error getting hypothesis:', err);
-    return null;
+  if (pool && dbReady) {
+    try {
+      const result = await pool.query(
+        'SELECT data FROM hypotheses WHERE id = $1',
+        [id]
+      );
+      if (result.rows[0]) return result.rows[0].data;
+    } catch (err) {
+      console.error('PostgreSQL error:', err);
+    }
   }
+  // Fallback to JSON
+  const data = readJsonData();
+  return data.hypotheses.find(h => h.id === id) || null;
 }
 
 // Helper: Save hypothesis
 async function saveHypothesis(hypothesis) {
-  try {
-    const jsonData = JSON.stringify(hypothesis);
-    await pool.query(
-      `INSERT INTO hypotheses (id, data, updated_at)
-       VALUES ($1, $2, NOW())
-       ON CONFLICT (id) DO UPDATE SET data = $2, updated_at = NOW()`,
-      [hypothesis.id, jsonData]
-    );
-    return true;
-  } catch (err) {
-    console.error('Error saving hypothesis:', err);
-    return false;
+  if (pool && dbReady) {
+    try {
+      const jsonData = JSON.stringify(hypothesis);
+      await pool.query(
+        `INSERT INTO hypotheses (id, data, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (id) DO UPDATE SET data = $2, updated_at = NOW()`,
+        [hypothesis.id, jsonData]
+      );
+      return true;
+    } catch (err) {
+      console.error('PostgreSQL save error:', err);
+    }
   }
+  // Fallback to JSON
+  const data = readJsonData();
+  const index = data.hypotheses.findIndex(h => h.id === hypothesis.id);
+  if (index >= 0) {
+    data.hypotheses[index] = hypothesis;
+  } else {
+    data.hypotheses.unshift(hypothesis);
+  }
+  return writeJsonData(data);
 }
 
 // Helper: Delete hypothesis
 async function deleteHypothesis(id) {
-  try {
-    await pool.query('DELETE FROM hypotheses WHERE id = $1', [id]);
-    return true;
-  } catch (err) {
-    console.error('Error deleting hypothesis:', err);
-    return false;
+  if (pool && dbReady) {
+    try {
+      await pool.query('DELETE FROM hypotheses WHERE id = $1', [id]);
+      return true;
+    } catch (err) {
+      console.error('PostgreSQL delete error:', err);
+    }
   }
+  // Fallback to JSON
+  const data = readJsonData();
+  data.hypotheses = data.hypotheses.filter(h => h.id !== id);
+  return writeJsonData(data);
 }
 
 // API Routes
@@ -245,12 +361,8 @@ app.get('/api/sync', async (req, res) => {
 });
 
 app.get('/api/health', async (req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
-  } catch (err) {
-    res.json({ status: 'ok', database: 'disconnected', timestamp: new Date().toISOString() });
-  }
+  const dbStatus = pool && dbReady ? 'connected' : 'fallback';
+  res.json({ status: 'ok', database: dbStatus, timestamp: new Date().toISOString() });
 });
 
 // Serve frontend in production
@@ -266,5 +378,5 @@ if (IS_PRODUCTION) {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Hipotesa Journal running on http://0.0.0.0:${PORT}`);
-  console.log(`🗄️ Database: PostgreSQL`);
+  console.log(`📁 Storage: ${pool && dbReady ? 'PostgreSQL' : 'JSON file (fallback)'}`);
 });
