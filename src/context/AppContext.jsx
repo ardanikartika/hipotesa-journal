@@ -106,18 +106,58 @@ export function AppProvider({ children }) {
     setHypotheses(prev => prev.filter(h => h.id !== id));
   }, []);
 
-  const addTimeline = useCallback(async (id, content) => {
-    const update = await api.addTimeline(id, content);
-    setHypotheses(prev => prev.map(h => {
-      if (h.id === id) {
-        return {
-          ...h,
-          timeline: [...(h.timeline || []), update]
-        };
-      }
-      return h;
-    }));
-  }, []);
+  // Findings
+  const addFinding = useCallback(async (id, finding) => {
+    const hypothesis = hypotheses.find(h => h.id === id);
+    if (!hypothesis) return;
+
+    const newFindings = [...(hypothesis.findings || []), finding];
+    const updated = await api.update(id, { ...hypothesis, findings: newFindings });
+    setHypotheses(prev => prev.map(h => h.id === id ? updated : h));
+    return updated;
+  }, [hypotheses]);
+
+  const deleteFinding = useCallback(async (id, findingIndex) => {
+    const hypothesis = hypotheses.find(h => h.id === id);
+    if (!hypothesis) return;
+
+    const newFindings = (hypothesis.findings || []).filter((_, i) => i !== findingIndex);
+    const updated = await api.update(id, { ...hypothesis, findings: newFindings });
+    setHypotheses(prev => prev.map(h => h.id === id ? updated : h));
+    return updated;
+  }, [hypotheses]);
+
+  // Sources
+  const addSource = useCallback(async (id, source) => {
+    const hypothesis = hypotheses.find(h => h.id === id);
+    if (!hypothesis) return;
+
+    const newSources = [...(hypothesis.sources || []), source];
+    const updated = await api.update(id, { ...hypothesis, sources: newSources });
+    setHypotheses(prev => prev.map(h => h.id === id ? updated : h));
+    return updated;
+  }, [hypotheses]);
+
+  const updateSource = useCallback(async (id, sourceIndex, data) => {
+    const hypothesis = hypotheses.find(h => h.id === id);
+    if (!hypothesis) return;
+
+    const newSources = [...(hypothesis.sources || [])];
+    newSources[sourceIndex] = { ...newSources[sourceIndex], ...data };
+    const updated = await api.update(id, { ...hypothesis, sources: newSources });
+    setHypotheses(prev => prev.map(h => h.id === id ? updated : h));
+    return updated;
+  }, [hypotheses]);
+
+  const deleteSource = useCallback(async (id, sourceIndex) => {
+    const hypothesis = hypotheses.find(h => h.id === id);
+    if (!hypothesis) return;
+
+    const newSources = (hypothesis.sources || []).filter((_, i) => i !== sourceIndex);
+    const updated = await api.update(id, { ...hypothesis, sources: newSources });
+    setHypotheses(prev => prev.map(h => h.id === id ? updated : h));
+    return updated;
+  }, [hypotheses]);
 
   const getRandomHypothesis = useCallback(async () => {
     try {
@@ -146,7 +186,11 @@ export function AppProvider({ children }) {
       createHypothesis,
       updateHypothesis,
       deleteHypothesis,
-      addTimeline,
+      addFinding,
+      deleteFinding,
+      addSource,
+      updateSource,
+      deleteSource,
       getRandomHypothesis,
       getHypothesisById
     }}>

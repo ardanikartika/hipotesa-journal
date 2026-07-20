@@ -1,396 +1,562 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Search, BookOpen, ChevronRight } from 'lucide-react';
 
+// Topik riset
 const TOPICS = [
-  { key: 'philosophy', label: 'Filsafat', emoji: '🤔' },
-  { key: 'economics', label: 'Ekonomi', emoji: '📊' },
-  { key: 'business', label: 'Bisnis', emoji: '💼' },
-  { key: 'religion', label: 'Agama', emoji: '🕌' },
-  { key: 'science', label: 'Sains', emoji: '🔬' },
-  { key: 'tech', label: 'Teknologi', emoji: '💻' },
-  { key: 'politics', label: 'Politik', emoji: '🏛️' },
-  { key: 'art', label: 'Seni', emoji: '🎨' },
-  { key: 'health', label: 'Kesehatan', emoji: '💊' },
-  { key: 'education', label: 'Pendidikan', emoji: '📚' },
-  { key: 'other', label: 'Lainnya', emoji: '📌' },
+  { key: 'philosophy', label: 'Filsafat', emoji: '🤔', color: '#8B5CF6' },
+  { key: 'economics', label: 'Ekonomi', emoji: '📊', color: '#10B981' },
+  { key: 'business', label: 'Bisnis', emoji: '💼', color: '#F59E0B' },
+  { key: 'religion', label: 'Agama', emoji: '🕌', color: '#6366F1' },
+  { key: 'science', label: 'Sains', emoji: '🔬', color: '#3B82F6' },
+  { key: 'tech', label: 'Teknologi', emoji: '💻', color: '#EC4899' },
+  { key: 'politics', label: 'Politik', emoji: '🏛️', color: '#EF4444' },
+  { key: 'art', label: 'Seni', emoji: '🎨', color: '#F97316' },
+  { key: 'health', label: 'Kesehatan', emoji: '💊', color: '#14B8A6' },
+  { key: 'education', label: 'Pendidikan', emoji: '📚', color: '#A855F7' },
+  { key: 'other', label: 'Lainnya', emoji: '📌', color: '#6B7280' },
 ];
 
 function App() {
-  const { hypotheses, createHypothesis, updateHypothesis, deleteHypothesis, addTimeline, getRandomHypothesis, getHypothesisById } = useApp();
-  const [tab, setTab] = useState('list');
+  const { hypotheses, createHypothesis, updateHypothesis, deleteHypothesis, addFinding, addSource, updateSource, deleteFinding, deleteSource, getRandomHypothesis, getHypothesisById } = useApp();
+  const [view, setView] = useState('list'); // list | detail | new | edit
   const [selected, setSelected] = useState(null);
-  const [editMode, setEditMode] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterTopic, setFilterTopic] = useState('');
+
+  const filtered = useMemo(() => {
+    return hypotheses.filter(h => {
+      const q = search.toLowerCase();
+      const matchSearch = !q || h.title?.toLowerCase().includes(q) || h.content?.toLowerCase().includes(q);
+      const matchTopic = !filterTopic || h.topic === filterTopic;
+      return matchSearch && matchTopic;
+    });
+  }, [hypotheses, search, filterTopic]);
+
+  const handleSelect = useCallback((id) => {
+    const h = getHypothesisById(id);
+    if (h) { setSelected(h); setView('detail'); }
+  }, [getHypothesisById]);
+
+  const handleRandom = useCallback(async () => {
+    const r = await getRandomHypothesis();
+    if (r) { setSelected(r); setView('detail'); }
+  }, [getRandomHypothesis]);
 
   const handleSave = useCallback(async (data) => {
     if (data.id) await updateHypothesis(data.id, data);
     else await createHypothesis(data);
-    setTab('list');
-    setEditMode(null);
+    setView('list');
+    setSelected(null);
   }, [createHypothesis, updateHypothesis]);
-
-  const handleSelect = useCallback((id) => {
-    const h = getHypothesisById(id);
-    if (h) { setSelected(h); setTab('detail'); }
-  }, [getHypothesisById]);
 
   const handleDelete = useCallback(async () => {
     if (selected) {
       await deleteHypothesis(selected.id);
       setSelected(null);
-      setTab('list');
+      setView('list');
     }
   }, [selected, deleteHypothesis]);
 
-  const handleTimeline = useCallback(async (content) => {
+  const handleBack = useCallback(() => {
+    setSelected(null);
+    setView('list');
+  }, []);
+
+  const refreshSelected = useCallback(() => {
     if (selected) {
-      await addTimeline(selected.id, content);
       const updated = getHypothesisById(selected.id);
       if (updated) setSelected(updated);
     }
-  }, [selected, addTimeline, getHypothesisById]);
+  }, [selected, getHypothesisById]);
 
-  const handleRelated = useCallback((id) => {
-    const h = getHypothesisById(id);
-    if (h) setSelected(h);
-  }, [getHypothesisById]);
-
-  const handleRandom = useCallback(async () => {
-    const r = await getRandomHypothesis();
-    if (r) { setSelected(r); setTab('detail'); }
-  }, [getRandomHypothesis]);
-
-  if (tab === 'detail' && selected) {
+  if (view === 'detail' && selected) {
     return (
       <DetailView
         item={selected}
-        all={hypotheses}
-        onEdit={() => { setEditMode(selected); setTab('edit'); }}
+        onBack={handleBack}
+        onEdit={() => setView('edit')}
         onDelete={handleDelete}
-        onTimeline={handleTimeline}
-        onRelated={handleRelated}
-        onRandom={handleRandom}
-        onBack={() => { setSelected(null); setTab('list'); }}
+        onAddFinding={async (finding) => { await addFinding(selected.id, finding); refreshSelected(); }}
+        onDeleteFinding={async (findingId) => { await deleteFinding(selected.id, findingId); refreshSelected(); }}
+        onAddSource={async (source) => { await addSource(selected.id, source); refreshSelected(); }}
+        onUpdateSource={async (sourceId, data) => { await updateSource(selected.id, sourceId, data); refreshSelected(); }}
+        onDeleteSource={async (sourceId) => { await deleteSource(selected.id, sourceId); refreshSelected(); }}
       />
     );
   }
 
-  if (tab === 'edit' || tab === 'new') {
+  if (view === 'new' || view === 'edit') {
     return (
-      <EditView
-        item={editMode}
-        all={hypotheses}
+      <FormView
+        item={view === 'edit' ? selected : null}
         onSave={handleSave}
-        onCancel={() => { setEditMode(null); setTab(editMode ? 'detail' : 'list'); setSelected(null); }}
+        onCancel={handleBack}
       />
     );
   }
 
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
-      <header className="sticky top-0 z-30 px-6 py-5" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
-        <div className="flex items-center justify-between">
+      {/* Header */}
+      <header className="sticky top-0 z-30 px-6 pt-6 pb-4" style={{ background: 'var(--bg)' }}>
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold">Hipotesa</h1>
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>{hypotheses.length} jurnal</p>
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              {hypotheses.length} riset
+            </p>
           </div>
-          <button onClick={handleRandom} className="p-3 rounded-xl" style={{ background: 'var(--bg)' }}>🎲</button>
+          <div className="flex gap-2">
+            <button onClick={handleRandom} className="p-3 rounded-xl" style={{ background: 'var(--card)' }} title="Random">
+              🎲
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-4">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--muted)' }} />
+          <input
+            type="text"
+            placeholder="Cari hipotesa..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-12"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2">
+              <X className="w-5 h-5" style={{ color: 'var(--muted)' }} />
+            </button>
+          )}
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-6 px-6">
+          <button
+            onClick={() => setFilterTopic('')}
+            className={`filter-pill ${filterTopic === '' ? 'active' : ''}`}
+          >
+            Semua ({hypotheses.length})
+          </button>
+          {TOPICS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setFilterTopic(filterTopic === t.key ? '' : t.key)}
+              className={`filter-pill ${filterTopic === t.key ? 'active' : ''}`}
+              style={filterTopic === t.key ? { background: t.color + '20', color: t.color } : {}}
+            >
+              {t.emoji} {t.label} ({hypotheses.filter(h => h.topic === t.key).length})
+            </button>
+          ))}
         </div>
       </header>
 
-      <main className="px-6 py-6">
-        {hypotheses.length === 0 ? (
+      {/* List */}
+      <main className="px-6">
+        {filtered.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-5xl mb-4">📝</div>
-            <p className="font-semibold mb-2">Belum ada jurnal</p>
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>Tekan tombol + untuk membuat</p>
+            <div className="text-5xl mb-4">🔬</div>
+            <p className="font-semibold mb-2">Belum ada riset</p>
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>Tekan tombol + untuk ajukan hipotesa</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {hypotheses.map(h => (
-              <ItemCard key={h.id} item={h} onClick={() => handleSelect(h.id)} />
-            ))}
+          <div className="space-y-3">
+            {filtered.map((h, i) => {
+              const topic = TOPICS.find(t => t.key === h.topic);
+              const findingCount = h.findings?.length || 0;
+              const sourceCount = h.sources?.length || 0;
+              const doneSourceCount = h.sources?.filter(s => s.status === 'done').length || 0;
+
+              return (
+                <div
+                  key={h.id}
+                  onClick={() => handleSelect(h.id)}
+                  className="card p-5 cursor-pointer animate"
+                  style={{ animationDelay: `${i * 30}ms` }}
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Topic Icon */}
+                    <div
+                      className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0"
+                      style={{ background: topic?.color + '20', color: topic?.color }}
+                    >
+                      {topic?.emoji || '📌'}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold mb-1 line-clamp-2">{h.title || 'Tanpa judul'}</h3>
+                      <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--muted)' }}>
+                        {h.content || 'Tidak ada deskripsi'}
+                      </p>
+
+                      {/* Meta */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {topic && (
+                          <span className="meta-badge" style={{ background: topic.color + '15', color: topic.color }}>
+                            {topic.emoji} {topic.label}
+                          </span>
+                        )}
+                        {findingCount > 0 && (
+                          <span className="meta-badge">📌 {findingCount} finding</span>
+                        )}
+                        {sourceCount > 0 && (
+                          <span className="meta-badge">📚 {doneSourceCount}/{sourceCount} source</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <ChevronRight className="w-5 h-5 shrink-0" style={{ color: 'var(--muted)' }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0" style={{ background: 'var(--card)', borderTop: '1px solid var(--border)' }}>
-        <button onClick={() => setTab('new')} className="w-full py-4 flex items-center justify-center gap-3 font-semibold" style={{ color: 'white', background: 'var(--primary)' }}>
-          <Plus className="w-5 h-5" /> Baru
-        </button>
-      </div>
+      {/* FAB */}
+      <button
+        onClick={() => setView('new')}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-lg z-40"
+        style={{ background: 'var(--primary)', color: 'white' }}
+      >
+        <Plus className="w-6 h-6" />
+      </button>
     </div>
   );
 }
 
-function ItemCard({ item, onClick }) {
-  const badge = {
-    'needs-research': { label: 'Riset', class: 'badge-blue' },
-    'proven': { label: 'Terbukti', class: 'badge-green' },
-    'broken': { label: 'Patah', class: 'badge-rose' }
-  }[item.status] || { label: 'Riset', class: 'badge-blue' };
+// Detail View
+function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFinding, onAddSource, onUpdateSource, onDeleteSource }) {
+  const [activeTab, setActiveTab] = useState('findings');
+  const [showAddFinding, setShowAddFinding] = useState(false);
+  const [showAddSource, setShowAddSource] = useState(false);
+  const [findingText, setFindingText] = useState('');
+  const [sourceText, setSourceText] = useState('');
 
   const topic = TOPICS.find(t => t.key === item.topic);
 
+  const findings = item.findings || [];
+  const sources = item.sources || [];
+
+  const handleAddFinding = () => {
+    if (findingText.trim()) {
+      onAddFinding({ text: findingText.trim(), date: new Date().toISOString() });
+      setFindingText('');
+      setShowAddFinding(false);
+    }
+  };
+
+  const handleAddSource = () => {
+    if (sourceText.trim()) {
+      onAddSource({ title: sourceText.trim(), status: 'to-read', dateAdded: new Date().toISOString() });
+      setSourceText('');
+      setShowAddSource(false);
+    }
+  };
+
   return (
-    <div onClick={onClick} className="card p-5 cursor-pointer animate" style={{ animation: 'fadeUp 0.3s ease' }}>
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg" style={{ background: 'var(--bg)' }}>
-          {topic ? topic.emoji : (item.title || 'U')[0].toUpperCase()}
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
+      {/* Header */}
+      <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+        <button onClick={onBack} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>
+          ←
+        </button>
+        <div className="flex gap-2">
+          <button onClick={onEdit} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>✏️</button>
+          <button onClick={onDelete} className="p-2 rounded-lg" style={{ background: '#FEE2E2' }}>🗑️</button>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold mb-1 line-clamp-2">{item.title || 'Tanpa judul'}</h3>
-          <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>{item.author || 'Anonim'}</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`badge ${badge.class}`}>{badge.label}</span>
-            {topic && <span className="badge badge-outline">{topic.emoji} {topic.label}</span>}
-          </div>
+      </header>
+
+      {/* Hero */}
+      <div className="px-6 py-6">
+        <div className="flex items-center gap-2 mb-3">
+          {topic && (
+            <span className="badge" style={{ background: topic.color + '20', color: topic.color }}>
+              {topic.emoji} {topic.label}
+            </span>
+          )}
         </div>
+
+        <h1 className="text-2xl font-bold mb-3">{item.title || 'Tanpa judul'}</h1>
+        {item.content && (
+          <p className="text-base leading-relaxed mb-4" style={{ color: 'var(--muted)' }}>
+            {item.content}
+          </p>
+        )}
+        <p className="text-sm" style={{ color: 'var(--muted)' }}>
+          Dibuat {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
       </div>
+
+      {/* Tabs */}
+      <div className="px-6 flex gap-1 mb-4">
+        <button
+          onClick={() => setActiveTab('findings')}
+          className={`tab-btn ${activeTab === 'findings' ? 'active' : ''}`}
+        >
+          📌 Findings ({findings.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('sources')}
+          className={`tab-btn ${activeTab === 'sources' ? 'active' : ''}`}
+        >
+          📚 Sources ({sources.length})
+        </button>
+      </div>
+
+      <main className="px-6">
+        {/* Findings Tab */}
+        {activeTab === 'findings' && (
+          <div className="space-y-3">
+            {/* Add Finding */}
+            {showAddFinding ? (
+              <div className="card p-4 space-y-3">
+                <textarea
+                  value={findingText}
+                  onChange={(e) => setFindingText(e.target.value)}
+                  placeholder="Tulis finding baru..."
+                  rows={3}
+                  className="text-sm"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button onClick={handleAddFinding} className="btn btn-primary flex-1 py-2 text-sm">
+                    Simpan
+                  </button>
+                  <button onClick={() => setShowAddFinding(false)} className="btn py-2 px-4 text-sm" style={{ background: 'var(--card)' }}>
+                    Batal
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAddFinding(true)}
+                className="w-full py-4 rounded-xl border border-dashed text-sm font-medium"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+              >
+                + Tambah Finding
+              </button>
+            )}
+
+            {/* Finding List */}
+            {findings.length === 0 ? (
+              <div className="text-center py-12" style={{ color: 'var(--muted)' }}>
+                <div className="text-4xl mb-2">📌</div>
+                <p className="text-sm">Belum ada finding</p>
+                <p className="text-xs">Tambahkan evidence untuk mendukung atau menolak hipotesa</p>
+              </div>
+            ) : (
+              findings.map((f, i) => (
+                <div key={i} className="card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1">
+                      <span className="text-lg mt-0.5">📌</span>
+                      <div>
+                        <p className="text-sm leading-relaxed">{f.text}</p>
+                        <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
+                          {new Date(f.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onDeleteFinding(i)}
+                      className="p-1 text-xs"
+                      style={{ color: '#EF4444' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Sources Tab */}
+        {activeTab === 'sources' && (
+          <div className="space-y-3">
+            {/* Add Source */}
+            {showAddSource ? (
+              <div className="card p-4 space-y-3">
+                <input
+                  value={sourceText}
+                  onChange={(e) => setSourceText(e.target.value)}
+                  placeholder="Judul paper, buku, atau artikel..."
+                  className="text-sm"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button onClick={handleAddSource} className="btn btn-primary flex-1 py-2 text-sm">
+                    Simpan
+                  </button>
+                  <button onClick={() => setShowAddSource(false)} className="btn py-2 px-4 text-sm" style={{ background: 'var(--card)' }}>
+                    Batal
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAddSource(true)}
+                className="w-full py-4 rounded-xl border border-dashed text-sm font-medium"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+              >
+                + Tambah Source
+              </button>
+            )}
+
+            {/* Source List */}
+            {sources.length === 0 ? (
+              <div className="text-center py-12" style={{ color: 'var(--muted)' }}>
+                <div className="text-4xl mb-2">📚</div>
+                <p className="text-sm">Belum ada source</p>
+                <p className="text-xs">Tambahkan paper atau artikel untuk dibaca ulang</p>
+              </div>
+            ) : (
+              sources.map((s, i) => {
+                const statusColors = {
+                  'to-read': { bg: '#F3F4F6', color: '#6B7280' },
+                  'reading': { bg: '#DBEAFE', color: '#3B82F6' },
+                  'done': { bg: '#D1FAE5', color: '#10B981' },
+                };
+                const sc = statusColors[s.status] || statusColors['to-read'];
+                const statusLabels = { 'to-read': '📖 Akan dibaca', reading: '📖 Dibaca', done: '✅ Selesai' };
+
+                const cycleStatus = () => {
+                  const next = s.status === 'to-read' ? 'reading' : s.status === 'reading' ? 'done' : 'to-read';
+                  onUpdateSource(i, { status: next });
+                };
+
+                return (
+                  <div key={i} className="card p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1">
+                        <BookOpen className="w-5 h-5 mt-0.5 shrink-0" style={{ color: 'var(--muted)' }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{s.title}</p>
+                          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+                            Ditambahkan {new Date(s.dateAdded).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={cycleStatus}
+                          className="badge text-xs cursor-pointer"
+                          style={{ background: sc.bg, color: sc.color }}
+                        >
+                          {statusLabels[s.status]}
+                        </button>
+                        <button
+                          onClick={() => onDeleteSource(i)}
+                          className="p-1 text-xs"
+                          style={{ color: '#EF4444' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </main>
     </div>
   );
 }
 
-function EditView({ item, all, onSave, onCancel }) {
-  const [author, setAuthor] = useState(item?.author || '');
+// Form View
+function FormView({ item, onSave, onCancel }) {
+  const [title, setTitle] = useState(item?.title || '');
   const [content, setContent] = useState(item?.content || '');
   const [topic, setTopic] = useState(item?.topic || '');
-  const [status, setStatus] = useState(item?.status || 'needs-research');
-  const [sources, setSources] = useState(item?.sources || []);
-  const [relatedIds, setRelatedIds] = useState(item?.relatedIds || []);
-  const [showSources, setShowSources] = useState(false);
-  const [showRelated, setShowRelated] = useState(false);
-  const [newSource, setNewSource] = useState({ title: '' });
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content) return;
+    if (!title.trim()) return;
     setSaving(true);
-    const title = content.substring(0, 50);
     await onSave({
       id: item?.id,
-      title: item?.title || title,
-      author, content, topic, status, sources, relatedIds
+      title: title.trim(),
+      content: content.trim(),
+      topic,
+      findings: item?.findings || [],
+      sources: item?.sources || [],
     });
     setSaving(false);
   };
 
-  const addSource = () => {
-    if (!newSource.title) return;
-    setSources(prev => [...prev, { id: Date.now(), ...newSource }]);
-    setNewSource({ title: '' });
-  };
-
-  const removeSource = (id) => setSources(prev => prev.filter(s => s.id !== id));
-  const toggleRelated = (id) => setRelatedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-
   return (
     <div className="min-h-screen pb-32" style={{ background: 'var(--bg)' }}>
-      <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
-        <button onClick={onCancel} className="p-2 rounded-lg" style={{ background: 'var(--bg)' }}><X className="w-5 h-5" /></button>
-        <h1 className="font-semibold">{item ? 'Edit' : 'Baru'}</h1>
+      {/* Header */}
+      <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+        <button onClick={onCancel} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>
+          <X className="w-5 h-5" />
+        </button>
+        <h1 className="font-semibold">{item ? 'Edit' : 'Hipotesa Baru'}</h1>
         <div className="w-10" />
       </header>
 
-      <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
+      <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6">
+        {/* Title */}
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Author</label>
-          <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="Nama..." />
+          <label className="text-sm font-medium block mb-2">Hipotesa *</label>
+          <textarea
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Apakah...?"
+            rows={3}
+          />
         </div>
 
+        {/* Content */}
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Content</label>
-          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Tulis jurnal kamu..." rows={6} />
+          <label className="text-sm font-medium block mb-2">Deskripsi / Latar Belakang</label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Jelaskan konteks hipotesa..."
+            rows={4}
+          />
         </div>
 
+        {/* Topic */}
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Topik</label>
+          <label className="text-sm font-medium block mb-3">Topik</label>
           <div className="flex flex-wrap gap-2">
             {TOPICS.map(t => (
-              <button key={t.key} type="button" onClick={() => setTopic(topic === t.key ? '' : t.key)}
-                className="px-4 py-2 rounded-full text-sm font-medium"
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTopic(topic === t.key ? '' : t.key)}
+                className="px-4 py-2 rounded-full text-sm font-medium transition-all"
                 style={{
-                  background: topic === t.key ? 'var(--primary)' : 'var(--bg)',
-                  color: topic === t.key ? 'white' : 'var(--muted)'
-                }}>
+                  background: topic === t.key ? t.color : 'var(--card)',
+                  color: topic === t.key ? 'white' : 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
+              >
                 {t.emoji} {t.label}
               </button>
             ))}
           </div>
         </div>
 
-        <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Status</label>
-          <div className="grid grid-cols-3 gap-2">
-            {[['needs-research', 'Riset'], ['proven', 'Terbukti'], ['broken', 'Patah']].map(([s, l]) => (
-              <button key={s} type="button" onClick={() => setStatus(s)}
-                className="py-3 rounded-xl text-sm font-medium"
-                style={{
-                  background: status === s ? 'var(--primary)' : 'var(--bg)',
-                  color: status === s ? 'white' : 'var(--text)'
-                }}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="card p-4">
-          <button type="button" onClick={() => setShowSources(!showSources)}
-            className="w-full flex items-center justify-between text-sm font-medium">
-            📚 Sources ({sources.length})
-          </button>
-          {showSources && (
-            <div className="mt-3 space-y-2">
-              {sources.map(s => (
-                <div key={s.id} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'var(--bg)' }}>
-                  <span className="text-sm">{s.title}</span>
-                  <button type="button" onClick={() => removeSource(s.id)} className="text-xs px-2 py-1 rounded" style={{ background: '#FFE4E6', color: '#E11D48' }}>✕</button>
-                </div>
-              ))}
-              <div className="space-y-2 pt-2">
-                <input value={newSource.title} onChange={e => setNewSource({ title: e.target.value })} placeholder="Judul..." className="text-sm" />
-                <button type="button" onClick={addSource} className="w-full py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--primary)', color: 'white' }}>
-                  + Tambah
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <button type="submit" disabled={saving || !content}
-          className="btn btn-primary w-full py-4" style={{ background: saving ? 'var(--muted)' : 'var(--primary)' }}>
-          {saving ? 'Menyimpan...' : '💾 Simpan'}
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={saving || !title.trim()}
+          className="btn btn-primary w-full py-4 text-base"
+          style={{ background: saving ? 'var(--muted)' : 'var(--primary)' }}
+        >
+          {saving ? 'Menyimpan...' : '💾 Simpan Hipotesa'}
         </button>
       </form>
-    </div>
-  );
-}
-
-function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onRandom, onBack }) {
-  const [showTimeline, setShowTimeline] = useState(false);
-  const [timelineContent, setTimelineContent] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  const badge = {
-    'needs-research': { label: 'Riset', class: 'badge-blue' },
-    'proven': { label: 'Terbukti', class: 'badge-green' },
-    'broken': { label: 'Patah', class: 'badge-rose' }
-  }[item.status] || { label: 'Riset', class: 'badge-blue' };
-
-  const topic = TOPICS.find(t => t.key === item.topic);
-  const topicLabel = {
-    philosophy: 'Filsafat', economics: 'Ekonomi', business: 'Bisnis', religion: 'Agama',
-    science: 'Sains', tech: 'Teknologi', politics: 'Politik', art: 'Seni',
-    health: 'Kesehatan', education: 'Pendidikan', other: 'Lainnya'
-  };
-
-  const relatedItems = item.relatedIds?.map(id => all.find(h => h.id === id)).filter(Boolean) || [];
-
-  const handleShare = async () => {
-    const text = [
-      `📝 ${item.title || 'Tanpa judul'}`,
-      `Author: ${item.author || 'Anonim'}`,
-      `Status: ${badge.label}`,
-      topic ? `Topik: ${topicLabel[topic.key] || topic.key}` : '',
-      '',
-      item.content,
-      '',
-      '---',
-      'Via Hipotesa'
-    ].filter(Boolean).join('\n');
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
-      <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-        <button onClick={onBack} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>←</button>
-        <div className="flex gap-2">
-          <button onClick={onRandom} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>🎲</button>
-          <button onClick={onEdit} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>✏️</button>
-          <button onClick={onDelete} className="p-2 rounded-lg" style={{ background: '#FFE4E6', color: '#E11D48' }}>🗑️</button>
-        </div>
-      </header>
-
-      <main className="px-6 py-6">
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className={`badge ${badge.class}`}>{badge.label}</span>
-            {topic && <span className="badge badge-outline">{topic.emoji} {topic.label}</span>}
-          </div>
-          <h1 className="text-2xl font-bold mb-2">{item.title || 'Tanpa judul'}</h1>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            {item.author || 'Anonim'} • {new Date(item.createdAt).toLocaleDateString('id-ID')}
-          </p>
-        </div>
-
-        {item.content && <p className="mb-6 leading-relaxed" style={{ color: 'var(--muted)' }}>{item.content}</p>}
-
-        {item.sources?.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3">📚 Sources</h3>
-            <div className="space-y-2">
-              {item.sources.map(s => (
-                <div key={s.id} className="card p-3">
-                  <p className="text-sm font-medium">{s.title}</p>
-                  {s.author && <p className="text-xs" style={{ color: 'var(--muted)' }}>{s.author}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {relatedItems.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3">🔗 Related</h3>
-            <div className="space-y-2">
-              {relatedItems.map(r => (
-                <button key={r.id} onClick={() => onRelated(r.id)} className="card card-hover p-4 w-full text-left">
-                  <p className="text-sm font-medium">{r.title || 'Tanpa judul'}</p>
-                  <p className="text-xs" style={{ color: 'var(--muted)' }}>{r.author || 'Anonim'}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="mb-6">
-          <button onClick={() => setShowTimeline(!showTimeline)} className="text-sm font-semibold mb-3">
-            📅 Updates ({item.timeline?.length || 0}) {showTimeline ? '▲' : '▼'}
-          </button>
-
-          {showTimeline && (
-            <div className="space-y-3 mb-4">
-              <textarea value={timelineContent} onChange={e => setTimelineContent(e.target.value)}
-                placeholder="Tambah update..." rows={2} className="text-sm" />
-              <button onClick={async () => {
-                if (timelineContent.trim()) {
-                  await onTimeline(timelineContent);
-                  setTimelineContent('');
-                }
-              }} className="btn btn-primary py-2 text-sm">Simpan</button>
-            </div>
-          )}
-
-          {item.timeline?.map(t => (
-            <div key={t.id} className="pl-4 border-l-2 mb-3" style={{ borderColor: 'var(--border)' }}>
-              <p className="text-sm" style={{ color: 'var(--muted)' }}>{t.content}</p>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>{new Date(t.date).toLocaleDateString('id-ID')}</p>
-            </div>
-          ))}
-        </div>
-      </main>
-
-      <div className="fixed bottom-0 left-0 right-0 p-4" style={{ background: 'var(--card)', borderTop: '1px solid var(--border)' }}>
-        <button onClick={handleShare} className="w-full py-4 font-semibold"
-          style={{ background: copied ? '#22C55E' : 'var(--primary)', color: 'white' }}>
-          {copied ? '✓ Tersalin!' : '📤 Bagikan'}
-        </button>
-      </div>
     </div>
   );
 }
