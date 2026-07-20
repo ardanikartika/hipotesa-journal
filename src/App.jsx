@@ -1,25 +1,25 @@
 import { useState, useCallback, useMemo } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { Plus, X, Search, BookOpen, ChevronRight } from 'lucide-react';
+import { Plus, X, Search, BookOpen, ChevronRight, ExternalLink } from 'lucide-react';
 
-// Topik riset
+// Topik riset - warna simple
 const TOPICS = [
-  { key: 'philosophy', label: 'Filsafat', emoji: '🤔', color: '#8B5CF6' },
-  { key: 'economics', label: 'Ekonomi', emoji: '📊', color: '#10B981' },
-  { key: 'business', label: 'Bisnis', emoji: '💼', color: '#F59E0B' },
-  { key: 'religion', label: 'Agama', emoji: '🕌', color: '#6366F1' },
-  { key: 'science', label: 'Sains', emoji: '🔬', color: '#3B82F6' },
-  { key: 'tech', label: 'Teknologi', emoji: '💻', color: '#EC4899' },
-  { key: 'politics', label: 'Politik', emoji: '🏛️', color: '#EF4444' },
-  { key: 'art', label: 'Seni', emoji: '🎨', color: '#F97316' },
-  { key: 'health', label: 'Kesehatan', emoji: '💊', color: '#14B8A6' },
-  { key: 'education', label: 'Pendidikan', emoji: '📚', color: '#A855F7' },
-  { key: 'other', label: 'Lainnya', emoji: '📌', color: '#6B7280' },
+  { key: 'philosophy', label: 'Filsafat', emoji: '🤔', color: '#6366F1' },
+  { key: 'economics', label: 'Ekonomi', emoji: '💰', color: '#059669' },
+  { key: 'business', label: 'Bisnis', emoji: '💼', color: '#D97706' },
+  { key: 'religion', label: 'Agama', emoji: '🕌', color: '#7C3AED' },
+  { key: 'science', label: 'Sains', emoji: '🔬', color: '#2563EB' },
+  { key: 'tech', label: 'Teknologi', emoji: '💻', color: '#DC2626' },
+  { key: 'politics', label: 'Politik', emoji: '🏛️', color: '#DB2777' },
+  { key: 'art', label: 'Seni', emoji: '🎨', color: '#EA580C' },
+  { key: 'health', label: 'Kesehatan', emoji: '🏥', color: '#0891B2' },
+  { key: 'education', label: 'Pendidikan', emoji: '📚', color: '#4F46E5' },
+  { key: 'other', label: 'Lainnya', emoji: '📌', color: '#64748B' },
 ];
 
 function App() {
   const { hypotheses, createHypothesis, updateHypothesis, deleteHypothesis, addFinding, addSource, updateSource, deleteFinding, deleteSource, getRandomHypothesis, getHypothesisById } = useApp();
-  const [view, setView] = useState('list'); // list | detail | new | edit
+  const [view, setView] = useState('list');
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
   const [filterTopic, setFilterTopic] = useState('');
@@ -107,11 +107,9 @@ function App() {
               {hypotheses.length} riset
             </p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={handleRandom} className="p-3 rounded-xl" style={{ background: 'var(--card)' }} title="Random">
-              🎲
-            </button>
-          </div>
+          <button onClick={handleRandom} className="p-3 rounded-xl" style={{ background: 'var(--card)' }} title="Random">
+            🎲
+          </button>
         </div>
 
         {/* Search */}
@@ -144,7 +142,7 @@ function App() {
               key={t.key}
               onClick={() => setFilterTopic(filterTopic === t.key ? '' : t.key)}
               className={`filter-pill ${filterTopic === t.key ? 'active' : ''}`}
-              style={filterTopic === t.key ? { background: t.color + '20', color: t.color } : {}}
+              style={filterTopic === t.key ? { background: t.color, color: 'white' } : {}}
             >
               {t.emoji} {t.label} ({hypotheses.filter(h => h.topic === t.key).length})
             </button>
@@ -176,7 +174,6 @@ function App() {
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
                   <div className="flex items-start gap-4">
-                    {/* Topic Icon */}
                     <div
                       className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0"
                       style={{ background: topic?.color + '20', color: topic?.color }}
@@ -184,25 +181,23 @@ function App() {
                       {topic?.emoji || '📌'}
                     </div>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold mb-1 line-clamp-2">{h.title || 'Tanpa judul'}</h3>
                       <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--muted)' }}>
                         {h.content || 'Tidak ada deskripsi'}
                       </p>
 
-                      {/* Meta */}
                       <div className="flex items-center gap-3 flex-wrap">
                         {topic && (
-                          <span className="meta-badge" style={{ background: topic.color + '15', color: topic.color }}>
+                          <span className="meta-badge" style={{ background: topic.color + '20', color: topic.color }}>
                             {topic.emoji} {topic.label}
                           </span>
                         )}
                         {findingCount > 0 && (
-                          <span className="meta-badge">📌 {findingCount} finding</span>
+                          <span className="meta-badge">📌 {findingCount}</span>
                         )}
                         {sourceCount > 0 && (
-                          <span className="meta-badge">📚 {doneSourceCount}/{sourceCount} source</span>
+                          <span className="meta-badge">📚 {doneSourceCount}/{sourceCount}</span>
                         )}
                       </div>
                     </div>
@@ -230,14 +225,13 @@ function App() {
 
 // Detail View
 function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFinding, onAddSource, onUpdateSource, onDeleteSource }) {
-  const [activeTab, setActiveTab] = useState('findings');
+  const [activeTab, setActiveTab] = useState('hipotesa');
   const [showAddFinding, setShowAddFinding] = useState(false);
   const [showAddSource, setShowAddSource] = useState(false);
   const [findingText, setFindingText] = useState('');
-  const [sourceText, setSourceText] = useState('');
+  const [newSource, setNewSource] = useState({ title: '', url: '' });
 
   const topic = TOPICS.find(t => t.key === item.topic);
-
   const findings = item.findings || [];
   const sources = item.sources || [];
 
@@ -250,9 +244,15 @@ function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFind
   };
 
   const handleAddSource = () => {
-    if (sourceText.trim()) {
-      onAddSource({ title: sourceText.trim(), status: 'to-read', dateAdded: new Date().toISOString() });
-      setSourceText('');
+    if (newSource.title.trim()) {
+      onAddSource({
+        title: newSource.title.trim(),
+        url: newSource.url.trim(),
+        type: newSource.url.includes('pdf') ? 'pdf' : 'link',
+        status: 'to-read',
+        dateAdded: new Date().toISOString()
+      });
+      setNewSource({ title: '', url: '' });
       setShowAddSource(false);
     }
   };
@@ -270,29 +270,23 @@ function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFind
         </div>
       </header>
 
-      {/* Hero */}
-      <div className="px-6 py-6">
-        <div className="flex items-center gap-2 mb-3">
-          {topic && (
-            <span className="badge" style={{ background: topic.color + '20', color: topic.color }}>
-              {topic.emoji} {topic.label}
-            </span>
-          )}
-        </div>
-
-        <h1 className="text-2xl font-bold mb-3">{item.title || 'Tanpa judul'}</h1>
-        {item.content && (
-          <p className="text-base leading-relaxed mb-4" style={{ color: 'var(--muted)' }}>
-            {item.content}
-          </p>
+      {/* Topic Badge */}
+      <div className="px-6 pt-4">
+        {topic && (
+          <span className="badge" style={{ background: topic.color + '20', color: topic.color }}>
+            {topic.emoji} {topic.label}
+          </span>
         )}
-        <p className="text-sm" style={{ color: 'var(--muted)' }}>
-          Dibuat {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-        </p>
       </div>
 
       {/* Tabs */}
-      <div className="px-6 flex gap-1 mb-4">
+      <div className="px-6 pt-4 pb-2 flex gap-1">
+        <button
+          onClick={() => setActiveTab('hipotesa')}
+          className={`tab-btn ${activeTab === 'hipotesa' ? 'active' : ''}`}
+        >
+          💡 Hipotesa
+        </button>
         <button
           onClick={() => setActiveTab('findings')}
           className={`tab-btn ${activeTab === 'findings' ? 'active' : ''}`}
@@ -308,10 +302,24 @@ function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFind
       </div>
 
       <main className="px-6">
+        {/* Hipotesa Tab */}
+        {activeTab === 'hipotesa' && (
+          <div className="space-y-4">
+            <h1 className="text-xl font-bold">{item.title || 'Tanpa judul'}</h1>
+            {item.content && (
+              <p className="text-base leading-relaxed" style={{ color: 'var(--muted)' }}>
+                {item.content}
+              </p>
+            )}
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              Dibuat {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+        )}
+
         {/* Findings Tab */}
         {activeTab === 'findings' && (
           <div className="space-y-3">
-            {/* Add Finding */}
             {showAddFinding ? (
               <div className="card p-4 space-y-3">
                 <textarea
@@ -341,7 +349,6 @@ function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFind
               </button>
             )}
 
-            {/* Finding List */}
             {findings.length === 0 ? (
               <div className="text-center py-12" style={{ color: 'var(--muted)' }}>
                 <div className="text-4xl mb-2">📌</div>
@@ -378,15 +385,20 @@ function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFind
         {/* Sources Tab */}
         {activeTab === 'sources' && (
           <div className="space-y-3">
-            {/* Add Source */}
             {showAddSource ? (
               <div className="card p-4 space-y-3">
                 <input
-                  value={sourceText}
-                  onChange={(e) => setSourceText(e.target.value)}
-                  placeholder="Judul paper, buku, atau artikel..."
+                  value={newSource.title}
+                  onChange={(e) => setNewSource(p => ({ ...p, title: e.target.value }))}
+                  placeholder="Judul jurnal, paper, atau artikel..."
                   className="text-sm"
                   autoFocus
+                />
+                <input
+                  value={newSource.url}
+                  onChange={(e) => setNewSource(p => ({ ...p, url: e.target.value }))}
+                  placeholder="URL (opsional)"
+                  className="text-sm"
                 />
                 <div className="flex gap-2">
                   <button onClick={handleAddSource} className="btn btn-primary flex-1 py-2 text-sm">
@@ -407,22 +419,21 @@ function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFind
               </button>
             )}
 
-            {/* Source List */}
             {sources.length === 0 ? (
               <div className="text-center py-12" style={{ color: 'var(--muted)' }}>
                 <div className="text-4xl mb-2">📚</div>
                 <p className="text-sm">Belum ada source</p>
-                <p className="text-xs">Tambahkan paper atau artikel untuk dibaca ulang</p>
+                <p className="text-xs">Tambahkan jurnal atau paper untuk dibaca ulang</p>
               </div>
             ) : (
               sources.map((s, i) => {
                 const statusColors = {
-                  'to-read': { bg: '#F3F4F6', color: '#6B7280' },
-                  'reading': { bg: '#DBEAFE', color: '#3B82F6' },
-                  'done': { bg: '#D1FAE5', color: '#10B981' },
+                  'to-read': { bg: '#F3F4F6', color: '#64748B' },
+                  'reading': { bg: '#DBEAFE', color: '#2563EB' },
+                  'done': { bg: '#D1FAE5', color: '#059669' },
                 };
                 const sc = statusColors[s.status] || statusColors['to-read'];
-                const statusLabels = { 'to-read': '📖 Akan dibaca', reading: '📖 Dibaca', done: '✅ Selesai' };
+                const statusLabels = { 'to-read': '📖 Akan baca', reading: '📖 Dibaca', done: '✅ Selesai' };
 
                 const cycleStatus = () => {
                   const next = s.status === 'to-read' ? 'reading' : s.status === 'reading' ? 'done' : 'to-read';
@@ -436,6 +447,18 @@ function DetailView({ item, onBack, onEdit, onDelete, onAddFinding, onDeleteFind
                         <BookOpen className="w-5 h-5 mt-0.5 shrink-0" style={{ color: 'var(--muted)' }} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium">{s.title}</p>
+                          {s.url && (
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs flex items-center gap-1 mt-1"
+                              style={{ color: 'var(--primary)' }}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              {s.url.length > 40 ? s.url.substring(0, 40) + '...' : s.url}
+                            </a>
+                          )}
                           <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
                             Ditambahkan {new Date(s.dateAdded).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                           </p>
@@ -493,7 +516,6 @@ function FormView({ item, onSave, onCancel }) {
 
   return (
     <div className="min-h-screen pb-32" style={{ background: 'var(--bg)' }}>
-      {/* Header */}
       <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
         <button onClick={onCancel} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>
           <X className="w-5 h-5" />
@@ -503,7 +525,6 @@ function FormView({ item, onSave, onCancel }) {
       </header>
 
       <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6">
-        {/* Title */}
         <div>
           <label className="text-sm font-medium block mb-2">Hipotesa *</label>
           <textarea
@@ -514,7 +535,6 @@ function FormView({ item, onSave, onCancel }) {
           />
         </div>
 
-        {/* Content */}
         <div>
           <label className="text-sm font-medium block mb-2">Deskripsi / Latar Belakang</label>
           <textarea
@@ -525,7 +545,6 @@ function FormView({ item, onSave, onCancel }) {
           />
         </div>
 
-        {/* Topic */}
         <div>
           <label className="text-sm font-medium block mb-3">Topik</label>
           <div className="flex flex-wrap gap-2">
@@ -547,7 +566,6 @@ function FormView({ item, onSave, onCancel }) {
           </div>
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={saving || !title.trim()}
