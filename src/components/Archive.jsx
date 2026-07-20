@@ -1,27 +1,28 @@
 import { useState, useMemo } from 'react';
 import HypothesisCard from './HypothesisCard';
-import { Search, Shuffle, Download, Upload, X, FileText, Filter } from 'lucide-react';
+import { Search, Shuffle, Download, Upload, X } from 'lucide-react';
 import api from '../utils/api';
 
 export default function Archive({ hypotheses, onSelectHypothesis, onGetRandom, searchQuery = '' }) {
   const [filterStatus, setFilterStatus] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
+  const [localSearch, setLocalSearch] = useState('');
   const [importing, setImporting] = useState(false);
+
+  const search = searchQuery || localSearch;
 
   const filteredHypotheses = useMemo(() => {
     return hypotheses.filter(h => {
-      const query = searchQuery.toLowerCase();
+      const query = search.toLowerCase();
       const matchesSearch = !query ||
         h.title?.toLowerCase().includes(query) ||
         h.content?.toLowerCase().includes(query) ||
-        h.author?.toLowerCase().includes(query) ||
-        h.hypothesis?.toLowerCase().includes(query);
+        h.author?.toLowerCase().includes(query);
 
       const matchesStatus = filterStatus === 'all' || h.status === filterStatus;
 
       return matchesSearch && matchesStatus;
     });
-  }, [hypotheses, searchQuery, filterStatus]);
+  }, [hypotheses, search, filterStatus]);
 
   const handleExport = async () => {
     try {
@@ -41,7 +42,6 @@ export default function Archive({ hypotheses, onSelectHypothesis, onGetRandom, s
   const handleImport = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     setImporting(true);
     try {
       const text = await file.text();
@@ -50,7 +50,6 @@ export default function Archive({ hypotheses, onSelectHypothesis, onGetRandom, s
       window.location.reload();
     } catch (err) {
       console.error('Import failed:', err);
-      alert('Gagal import data');
     } finally {
       setImporting(false);
     }
@@ -63,126 +62,95 @@ export default function Archive({ hypotheses, onSelectHypothesis, onGetRandom, s
     'broken': hypotheses.filter(h => h.status === 'broken').length,
   }), [hypotheses]);
 
-  const filterTabs = [
+  const filters = [
     { key: 'all', label: 'Semua', count: statusCounts.all },
-    { key: 'needs-research', label: 'Butuh Riset', count: statusCounts['needs-research'] },
+    { key: 'needs-research', label: 'Riset', count: statusCounts['needs-research'] },
     { key: 'proven', label: 'Terbukti', count: statusCounts['proven'] },
-    { key: 'broken', label: 'Terpatahkan', count: statusCounts['broken'] },
+    { key: 'broken', label: 'Patah', count: statusCounts['broken'] },
   ];
 
-  const getFilterStyle = (key, isActive) => {
-    if (!isActive) {
-      return {
-        background: 'var(--bg-tertiary)',
-        color: 'var(--text-secondary)'
-      };
-    }
-    if (key === 'proven') return { background: 'var(--emerald-100)', color: 'var(--emerald-900)' };
-    if (key === 'broken') return { background: '#FEE2E2', color: '#DC2626' };
-    return { background: 'var(--amber-100)', color: '#996633' };
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Arsip Jurnal
-          </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            {filteredHypotheses.length} dari {hypotheses.length} jurnal
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
+    <div className="space-y-5">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+        <input
+          type="text"
+          placeholder="Cari jurnal..."
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
+          className="pl-12 pr-4"
+        />
+        {localSearch && (
           <button
-            onClick={onGetRandom}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105"
-            style={{ background: 'var(--bg-tertiary)' }}
-            title="Jurnal Acak"
+            onClick={() => setLocalSearch('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2"
           >
-            <Shuffle className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+            <X className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
           </button>
-          <button
-            onClick={handleExport}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105"
-            style={{ background: 'var(--bg-tertiary)' }}
-            title="Export"
-          >
-            <Download className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-          </button>
-          <label
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 cursor-pointer"
-            style={{ background: 'var(--bg-tertiary)' }}
-            title="Import"
-          >
-            <Upload className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-            <input type="file" accept=".json" onChange={handleImport} className="hidden" disabled={importing} />
-          </label>
-        </div>
+        )}
       </div>
 
-      {/* Filter Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
-        {filterTabs.map((filter) => {
+      {/* Filters */}
+      <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-5 px-5">
+        {filters.map((filter) => {
           const isActive = filterStatus === filter.key;
-          const style = getFilterStyle(filter.key, isActive);
+          let style = {};
+          if (isActive) {
+            if (filter.key === 'proven') style = { background: 'var(--accent)', color: 'white' };
+            else if (filter.key === 'broken') style = { background: 'var(--rose)', color: 'white' };
+            else style = { background: 'var(--accent)', color: 'white' };
+          } else {
+            style = { background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' };
+          }
           return (
             <button
               key={filter.key}
               onClick={() => setFilterStatus(filter.key)}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2"
+              className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap"
               style={style}
             >
-              {filter.label}
-              <span
-                className="px-2 py-0.5 rounded-full text-xs"
-                style={{
-                  background: isActive ? 'rgba(0,0,0,0.1)' : 'var(--border)',
-                  color: 'inherit'
-                }}
-              >
-                {filter.count}
-              </span>
+              {filter.label} ({filter.count})
             </button>
           );
         })}
       </div>
 
-      {/* Empty State */}
-      {filteredHypotheses.length === 0 && (
-        <div className="empty-state animate-fade-up">
-          <div className="empty-state-icon">
-            <FileText className="w-8 h-8" style={{ color: 'var(--text-tertiary)' }} />
-          </div>
-          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-            {searchQuery || filterStatus !== 'all' ? 'Tidak ditemukan' : 'Belum ada jurnal'}
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button onClick={onGetRandom} className="btn btn-ghost flex-1 py-3">
+          <Shuffle className="w-4 h-4" />
+          Acak
+        </button>
+        <button onClick={handleExport} className="btn btn-ghost py-3 px-4">
+          <Download className="w-4 h-4" />
+        </button>
+        <label className="btn btn-ghost py-3 px-4 cursor-pointer">
+          <Upload className="w-4 h-4" />
+          <input type="file" accept=".json" onChange={handleImport} className="hidden" disabled={importing} />
+        </label>
+      </div>
+
+      {/* List */}
+      {filteredHypotheses.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">📝</div>
+          <h3 className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+            {search || filterStatus !== 'all' ? 'Tidak ditemukan' : 'Belum ada jurnal'}
           </h3>
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-            {searchQuery || filterStatus !== 'all'
-              ? 'Coba kata kunci atau filter lain'
-              : 'Mulai dengan membuat jurnal baru'}
+            {search || filterStatus !== 'all' ? 'Coba kata kunci lain' : 'Tekan + untuk membuat jurnal baru'}
           </p>
         </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredHypotheses.map((h, i) => (
+            <div key={h.id} className="animate-fade-up" style={{ animationDelay: `${i * 30}ms` }}>
+              <HypothesisCard hypothesis={h} onClick={() => onSelectHypothesis(h.id)} />
+            </div>
+          ))}
+        </div>
       )}
-
-      {/* Journal List */}
-      <div className="space-y-4">
-        {filteredHypotheses.map((hypothesis, index) => (
-          <div
-            key={hypothesis.id}
-            className="animate-fade-up"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <HypothesisCard
-              hypothesis={hypothesis}
-              onClick={() => onSelectHypothesis(hypothesis.id)}
-            />
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
