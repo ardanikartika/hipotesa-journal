@@ -5,7 +5,6 @@ import InputForm from './components/InputForm';
 import Archive from './components/Archive';
 import HypothesisDetail from './components/HypothesisDetail';
 import api from './utils/api';
-import './index.css';
 
 function AppContent() {
   const {
@@ -27,7 +26,6 @@ function AppContent() {
   const [editingHypothesis, setEditingHypothesis] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
-  // Handle save (create or update)
   const handleSave = useCallback(async (data) => {
     if (data.id) {
       await updateHypothesis(data.id, data);
@@ -35,11 +33,9 @@ function AppContent() {
     } else {
       await createHypothesis(data);
     }
-    // Switch to archive after save
     setActiveTab('archive');
   }, [createHypothesis, updateHypothesis]);
 
-  // Handle edit
   const handleEdit = useCallback(() => {
     if (selectedHypothesis) {
       setEditingHypothesis(selectedHypothesis);
@@ -48,7 +44,6 @@ function AppContent() {
     }
   }, [selectedHypothesis]);
 
-  // Handle delete
   const handleDelete = useCallback(async () => {
     if (selectedHypothesis) {
       await deleteHypothesis(selectedHypothesis.id);
@@ -58,11 +53,9 @@ function AppContent() {
     }
   }, [selectedHypothesis, deleteHypothesis]);
 
-  // Handle timeline add
   const handleAddTimeline = useCallback(async (content) => {
     if (selectedHypothesis) {
       await addTimeline(selectedHypothesis.id, content);
-      // Refresh the selected hypothesis
       const updated = getHypothesisById(selectedHypothesis.id);
       if (updated) {
         setSelectedHypothesis(updated);
@@ -70,7 +63,6 @@ function AppContent() {
     }
   }, [selectedHypothesis, addTimeline, getHypothesisById]);
 
-  // Handle select hypothesis
   const handleSelectHypothesis = useCallback((id) => {
     const hypothesis = getHypothesisById(id);
     if (hypothesis) {
@@ -79,7 +71,6 @@ function AppContent() {
     }
   }, [getHypothesisById]);
 
-  // Handle random hypothesis
   const handleGetRandom = useCallback(async () => {
     try {
       const random = await getRandomHypothesis();
@@ -93,38 +84,31 @@ function AppContent() {
     }
   }, [getRandomHypothesis]);
 
-  // Handle navigate to related
   const handleNavigateToRelated = useCallback((id) => {
     handleSelectHypothesis(id);
   }, [handleSelectHypothesis]);
 
-  // Handle import
   const handleImport = useCallback(async (data) => {
     await api.importData(data);
     await refreshData();
-    alert('Data berhasil diimport!');
   }, [refreshData]);
 
-  // Handle refresh
   const handleRefresh = useCallback(() => {
     refreshData();
   }, [refreshData]);
 
-  // Back from detail
   const handleBackFromDetail = useCallback(() => {
     setShowDetail(false);
     setSelectedHypothesis(null);
   }, []);
 
-  // Cancel edit
   const handleCancelEdit = useCallback(() => {
     setEditingHypothesis(null);
   }, []);
 
-  // Show detail view
   if (showDetail && selectedHypothesis) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-[#0a0a0f]">
         <HypothesisDetail
           hypothesis={selectedHypothesis}
           allHypotheses={hypotheses}
@@ -140,28 +124,32 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-[#0a0a0f]">
+      {/* Background gradient */}
+      <div className="fixed inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-indigo-900/20 pointer-events-none" />
+
       {/* Main Content */}
-      <main className="max-w-lg mx-auto px-4 py-6">
+      <main className="relative max-w-lg mx-auto px-4 py-8">
         {/* Connection Status Banner */}
         {!isConnected && (
-          <div className="mb-4 p-3 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            Offline Mode - Data tersimpan di cache lokal
+          <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full bg-amber-400 animate-pulse" />
+            Offline Mode - Data dari cache lokal
           </div>
         )}
 
         {/* Error Banner */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-400 text-sm">
+          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
             {error}
           </div>
         )}
 
         {/* Loading State */}
         {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-2 border-accent-500/30 border-t-accent-500 rounded-full animate-spin" />
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4" />
+            <p className="text-slate-500">Memuat...</p>
           </div>
         )}
 

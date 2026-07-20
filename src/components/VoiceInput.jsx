@@ -8,7 +8,6 @@ export default function VoiceInput({ onTranscript, disabled }) {
   const finalTranscriptRef = useRef('');
 
   useEffect(() => {
-    // Check for Speech Recognition support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
@@ -19,7 +18,7 @@ export default function VoiceInput({ onTranscript, disabled }) {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'id-ID'; // Indonesian
+    recognition.lang = 'id-ID';
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -36,7 +35,6 @@ export default function VoiceInput({ onTranscript, disabled }) {
         }
       }
 
-      // Combine all final transcripts
       if (finalTranscript) {
         finalTranscriptRef.current += finalTranscript;
         onTranscript(finalTranscriptRef.current);
@@ -53,7 +51,6 @@ export default function VoiceInput({ onTranscript, disabled }) {
 
     recognition.onend = () => {
       setIsListening(false);
-      // Restart if still supposed to be listening
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
@@ -98,9 +95,9 @@ export default function VoiceInput({ onTranscript, disabled }) {
 
   if (!isSupported) {
     return (
-      <div className="flex items-center gap-2 text-amber-400 text-sm">
+      <div className="flex items-center gap-2 text-amber-400 text-sm bg-amber-500/10 px-3 py-2 rounded-xl">
         <MicOff className="w-4 h-4" />
-        <span>Voice input tidak didukung browser ini</span>
+        <span>Tidak didukung</span>
       </div>
     );
   }
@@ -111,43 +108,43 @@ export default function VoiceInput({ onTranscript, disabled }) {
         type="button"
         onClick={toggleListening}
         disabled={disabled}
-        className={`relative flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+        className={`relative flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
           isListening
-            ? 'bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/30'
-            : 'bg-accent-500 hover:bg-accent-600 shadow-lg shadow-accent-500/30'
+            ? 'bg-rose-600 shadow-lg shadow-rose-500/40 glow-purple'
+            : 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/40 hover:shadow-purple-500/60'
         }`}
       >
         {isListening ? (
           <>
-            <Mic className="w-5 h-5 text-white" />
+            <Mic className="w-6 h-6 text-white" />
             {/* Waveform Animation */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-end gap-0.5 h-6">
-              {[...Array(10)].map((_, i) => (
+            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-end gap-1 h-8">
+              {[...Array(8)].map((_, i) => (
                 <div
                   key={i}
-                  className="waveform-bar w-1 bg-rose-400 rounded-full"
-                  style={{ height: '4px' }}
+                  className="waveform-bar w-1.5 bg-rose-400 rounded-full"
+                  style={{ height: '6px' }}
                 />
               ))}
             </div>
           </>
         ) : (
-          <Mic className="w-5 h-5 text-white" />
+          <Mic className="w-6 h-6 text-white" />
         )}
 
         {/* Pulse ring when recording */}
         {isListening && (
-          <span className="absolute inset-0 rounded-full border-2 border-rose-400 pulse-recording" />
+          <span className="absolute inset-0 rounded-2xl border-4 border-rose-400 pulse-recording" />
         )}
       </button>
 
       {isListening && (
         <div className="flex items-center gap-2 text-rose-400 animate-fade-in">
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
           </span>
-          <span className="text-sm font-medium">Merekam...</span>
+          <span className="text-sm font-semibold">Merekam...</span>
         </div>
       )}
     </div>
