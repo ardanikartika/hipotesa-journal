@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Save, Sparkles, User, Plus, Minus, BookOpen, Link2, Trash2, ExternalLink } from 'lucide-react';
 import VoiceInput from './VoiceInput';
 import { SOURCE_TYPES } from '../types';
@@ -18,70 +18,51 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
   const [showStructured, setShowStructured] = useState(!!(editMode?.hypothesis || editMode?.supporting || editMode?.counter));
   const [showSources, setShowSources] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [titleExplicitlySet, setTitleExplicitlySet] = useState(!!editMode?.title);
   const [newSource, setNewSource] = useState({ title: '', author: '', url: '', type: 'article', notes: '' });
 
-  const title = titleExplicitlySet
-    ? (editMode?.title || generateTitle(content))
-    : generateTitle(content);
+  const title = editMode?.title || generateTitle(content);
 
   const handleVoiceTranscript = useCallback((text) => {
-    setContent(prev => {
-      const newContent = prev ? `${prev} ${text}` : text;
-      return newContent;
-    });
+    setContent(prev => prev ? `${prev} ${text}` : text);
   }, []);
 
   const handleAutoStructure = () => {
     const lines = content.split('\n');
     let currentSection = '';
-    const newHypothesis = [];
-    const newSupporting = [];
-    const newCounter = [];
+    const newH = [], newS = [], newC = [];
 
     lines.forEach(line => {
-      const upperLine = line.toUpperCase().trim();
-      if (upperLine.startsWith('H:') || upperLine.startsWith('HIPOTESA')) {
+      const upper = line.toUpperCase().trim();
+      if (upper.startsWith('H:') || upper.startsWith('HIPOTESA')) {
         currentSection = 'h';
-        const colonIndex = line.indexOf(':');
-        if (colonIndex >= 0) newHypothesis.push(line.substring(colonIndex + 1).trim());
-      } else if (upperLine.startsWith('A:') || upperLine.startsWith('ARGUMEN') || upperLine.startsWith('PENDUKUNG')) {
+        const idx = line.indexOf(':');
+        if (idx >= 0) newH.push(line.substring(idx + 1).trim());
+      } else if (upper.startsWith('A:') || upper.startsWith('ARGUMEN')) {
         currentSection = 'a';
-        const colonIndex = line.indexOf(':');
-        if (colonIndex >= 0) newSupporting.push(line.substring(colonIndex + 1).trim());
-      } else if (upperLine.startsWith('K:') || upperLine.startsWith('KONTRA') || upperLine.startsWith('SANGGAHAN')) {
+        const idx = line.indexOf(':');
+        if (idx >= 0) newS.push(line.substring(idx + 1).trim());
+      } else if (upper.startsWith('K:') || upper.startsWith('KONTRA')) {
         currentSection = 'k';
-        const colonIndex = line.indexOf(':');
-        if (colonIndex >= 0) newCounter.push(line.substring(colonIndex + 1).trim());
-      } else if (currentSection === 'h' && line.trim()) {
-        newHypothesis.push(line);
-      } else if (currentSection === 'a' && line.trim()) {
-        newSupporting.push(line);
-      } else if (currentSection === 'k' && line.trim()) {
-        newCounter.push(line);
-      } else if (!currentSection && line.trim()) {
+        const idx = line.indexOf(':');
+        if (idx >= 0) newC.push(line.substring(idx + 1).trim());
+      } else if (currentSection === 'h' && line.trim()) newH.push(line);
+      else if (currentSection === 'a' && line.trim()) newS.push(line);
+      else if (currentSection === 'k' && line.trim()) newC.push(line);
+      else if (!currentSection && line.trim()) {
         currentSection = 'h';
-        newHypothesis.push(line);
+        newH.push(line);
       }
     });
 
-    const hypText = newHypothesis.join('\n').trim();
-    const supText = newSupporting.join('\n').trim();
-    const cntText = newCounter.join('\n').trim();
-
-    setHypothesis(hypText);
-    setSupporting(supText);
-    setCounter(cntText);
+    setHypothesis(newH.join('\n').trim());
+    setSupporting(newS.join('\n').trim());
+    setCounter(newC.join('\n').trim());
     setShowStructured(true);
   };
 
   const handleAddSource = () => {
     if (!newSource.title.trim()) return;
-    setSources(prev => [...prev, {
-      id: uuidv4(),
-      ...newSource,
-      dateAdded: new Date().toISOString()
-    }]);
+    setSources(prev => [...prev, { id: uuidv4(), ...newSource, dateAdded: new Date().toISOString() }]);
     setNewSource({ title: '', author: '', url: '', type: 'article', notes: '' });
   };
 
@@ -98,7 +79,6 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
       await onSave({
         id: editMode?.id,
         title,
-        titleExplicitlySet,
         author: author.trim(),
         content: content.trim(),
         hypothesis: hypothesis.trim(),
@@ -128,55 +108,63 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
   };
 
   const toggleRelated = (id) => {
-    setRelatedIds(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
+    setRelatedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
+
+  const statusOptions = [
+    { key: 'needs-research', label: 'Research', icon: '🔬' },
+    { key: 'proven', label: 'Proven', icon: '✅' },
+    { key: 'broken', label: 'Broken', icon: '❌' }
+  ];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-28">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold gradient-text mb-2">
-          {editMode ? 'Edit Hipotesa' : 'Hipotesa Baru'}
-        </h1>
-        <p className="text-slate-500 text-sm">Catat ide, argumen, dan sanggahanmu</p>
+      <div className="mb-6">
+        <h2 className="font-serif font-semibold text-2xl mb-1" style={{ color: 'var(--text-primary)' }}>
+          {editMode ? 'Edit Journal' : 'New Journal'}
+        </h2>
+        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+          Document your hypothesis
+        </p>
       </div>
 
-      {/* Author Input */}
-      <div className="glass-card rounded-2xl p-5">
-        <label className="flex items-center gap-2 text-sm font-semibold text-slate-300 mb-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
-            <User className="w-4 h-4 text-white" />
-          </div>
-          Pencetus Ide
+      {/* Author */}
+      <div className="card p-5">
+        <label
+          className="flex items-center gap-2 text-sm font-medium mb-3"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <User className="w-4 h-4" />
+          Author
         </label>
         <input
           type="text"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
-          placeholder="Nama atau 'Diri Sendiri'"
-          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:border-purple-500 transition-all"
+          placeholder="Who's thinking this?"
+          className="text-base"
         />
       </div>
 
-      {/* Content Input */}
-      <div className="glass-card rounded-2xl p-5">
+      {/* Main Content */}
+      <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            Catatan Utama
+          <label
+            className="flex items-center gap-2 text-sm font-medium"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <Sparkles className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            Content
           </label>
           <VoiceInput onTranscript={handleVoiceTranscript} />
         </div>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Tulis hipotesa kamu di sini..."
-          rows={6}
-          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:border-purple-500 transition-all resize-none"
+          placeholder="Write your hypothesis here..."
+          rows={5}
+          className="text-base"
         />
       </div>
 
@@ -184,104 +172,135 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
       <button
         type="button"
         onClick={handleAutoStructure}
-        className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600/20 to-indigo-600/20 border border-purple-500/30 text-purple-300 hover:from-purple-600/30 hover:to-indigo-600/30 transition-all flex items-center justify-center gap-2 font-semibold"
+        className="w-full py-4 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 font-medium transition-all hover:scale-[1.01]"
+        style={{
+          borderColor: 'var(--accent)',
+          color: 'var(--accent)',
+          background: 'var(--accent-soft)'
+        }}
       >
         <Sparkles className="w-5 h-5" />
-        Struktur Otomatis (H • A • K)
+        Auto Structure (H • A • K)
       </button>
 
-      {/* Structured H-A-K Input */}
+      {/* H-A-K Sections */}
       <div className="space-y-4">
         <button
           type="button"
           onClick={() => setShowStructured(!showStructured)}
-          className="w-full flex items-center justify-between p-4 rounded-2xl glass-card hover:border-purple-500/30 transition-all"
+          className="w-full flex items-center justify-between card p-4"
         >
-          <span className="font-semibold text-slate-200">Struktur Hipotesa</span>
+          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            Structure
+          </span>
           {showStructured ? (
-            <Minus className="w-5 h-5 text-purple-400" />
+            <Minus className="w-5 h-5" style={{ color: 'var(--accent)' }} />
           ) : (
-            <Plus className="w-5 h-5 text-purple-400" />
+            <Plus className="w-5 h-5" style={{ color: 'var(--accent)' }} />
           )}
         </button>
 
         {showStructured && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Hypothesis (H) */}
-            <div className="glass-card rounded-2xl p-5 border-l-4 border-l-purple-500">
-              <label className="flex items-center gap-3 mb-3">
-                <span className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white font-bold text-lg">H</span>
+          <div className="space-y-4 animate-fade-up">
+            {/* Hypothesis */}
+            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#8b5cf6' }}>
+              <label className="flex items-center gap-2 mb-3">
+                <span
+                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white"
+                  style={{ background: '#8b5cf6' }}
+                >
+                  H
+                </span>
                 <div>
-                  <span className="font-bold text-purple-300">Hipotesa Utama</span>
-                  <p className="text-xs text-slate-500">Apa yang ingin kamu buktikan?</p>
+                  <span className="font-medium" style={{ color: '#8b5cf6' }}>Hypothesis</span>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>What are you proving?</p>
                 </div>
               </label>
               <textarea
                 value={hypothesis}
                 onChange={(e) => setHypothesis(e.target.value)}
-                placeholder="Contoh: Matahari terbit dari timur setiap hari..."
-                rows={3}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-purple-500/30 text-white placeholder-slate-600 focus:border-purple-500 transition-all resize-none"
+                placeholder="Main hypothesis..."
+                rows={2}
+                className="text-sm"
               />
             </div>
 
-            {/* Supporting Arguments (A) */}
-            <div className="glass-card rounded-2xl p-5 border-l-4 border-l-green-500">
-              <label className="flex items-center gap-3 mb-3">
-                <span className="w-10 h-10 rounded-xl bg-green-600 flex items-center justify-center text-white font-bold text-lg">A</span>
+            {/* Supporting */}
+            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#22c55e' }}>
+              <label className="flex items-center gap-2 mb-3">
+                <span
+                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white"
+                  style={{ background: '#22c55e' }}
+                >
+                  A
+                </span>
                 <div>
-                  <span className="font-bold text-green-300">Argumen Pendukung</span>
-                  <p className="text-xs text-slate-500">Bukti yang mendukung hipotesa</p>
+                  <span className="font-medium" style={{ color: '#22c55e' }}>Arguments</span>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Evidence supporting</p>
                 </div>
               </label>
               <textarea
                 value={supporting}
                 onChange={(e) => setSupporting(e.target.value)}
-                placeholder="Contoh: Historically recorded, scientific consensus..."
-                rows={3}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-green-500/30 text-white placeholder-slate-600 focus:border-green-500 transition-all resize-none"
+                placeholder="Supporting arguments..."
+                rows={2}
+                className="text-sm"
               />
             </div>
 
-            {/* Counter Arguments (K) */}
-            <div className="glass-card rounded-2xl p-5 border-l-4 border-l-amber-500">
-              <label className="flex items-center gap-3 mb-3">
-                <span className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center text-white font-bold text-lg">K</span>
+            {/* Counter */}
+            <div className="card p-5 border-l-4" style={{ borderLeftColor: '#f59e0b' }}>
+              <label className="flex items-center gap-2 mb-3">
+                <span
+                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white"
+                  style={{ background: '#f59e0b' }}
+                >
+                  K
+                </span>
                 <div>
-                  <span className="font-bold text-amber-300">Sanggahan / Kontra</span>
-                  <p className="text-xs text-slate-500">Argumen yang menentang</p>
+                  <span className="font-medium" style={{ color: '#f59e0b' }}>Counter</span>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Arguments against</p>
                 </div>
               </label>
               <textarea
                 value={counter}
                 onChange={(e) => setCounter(e.target.value)}
-                placeholder="Contoh: Flat earther arguments, conspiracy theories..."
-                rows={3}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-amber-500/30 text-white placeholder-slate-600 focus:border-amber-500 transition-all resize-none"
+                placeholder="Counter arguments..."
+                rows={2}
+                className="text-sm"
               />
             </div>
           </div>
         )}
       </div>
 
-      {/* Status Selection */}
-      <div className="glass-card rounded-2xl p-5">
-        <label className="text-sm font-semibold text-slate-300 mb-3 block">Status Validasi</label>
+      {/* Status */}
+      <div className="card p-5">
+        <label
+          className="text-sm font-medium mb-3 block"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          Status
+        </label>
         <div className="grid grid-cols-3 gap-3">
-          {[
-            { key: 'needs-research', label: 'Butuh Riset', icon: '🔍', style: 'status-research' },
-            { key: 'proven', label: 'Terbukti', icon: '✅', style: 'status-proven' },
-            { key: 'broken', label: 'Terpatahkan', icon: '❌', style: 'status-broken' }
-          ].map((opt) => (
+          {statusOptions.map((opt) => (
             <button
               key={opt.key}
               type="button"
               onClick={() => setStatus(opt.key)}
-              className={`p-4 rounded-xl text-center transition-all ${
-                status === opt.key
-                  ? `${opt.style} glow-purple`
-                  : 'bg-white/5 hover:bg-white/10'
-              }`}
+              className="p-4 rounded-xl text-center transition-all"
+              style={{
+                background: status === opt.key
+                  ? opt.key === 'proven' ? 'rgba(34, 197, 94, 0.12)'
+                    : opt.key === 'broken' ? 'rgba(244, 63, 94, 0.12)'
+                    : 'var(--accent-soft)'
+                  : 'var(--bg-tertiary)',
+                color: status === opt.key
+                  ? opt.key === 'proven' ? '#22c55e'
+                    : opt.key === 'broken' ? '#f43f5e'
+                    : 'var(--accent)'
+                  : 'var(--text-secondary)'
+              }}
             >
               <div className="text-2xl mb-1">{opt.icon}</div>
               <div className="text-xs font-semibold">{opt.label}</div>
@@ -290,58 +309,67 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
         </div>
       </div>
 
-      {/* Sources / Referensi */}
-      <div className="glass-card rounded-2xl p-5">
+      {/* Sources */}
+      <div className="card p-5">
         <button
           type="button"
           onClick={() => setShowSources(!showSources)}
           className="w-full flex items-center justify-between"
         >
-          <span className="font-semibold text-slate-200 flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-cyan-400" />
-            📚 Sumber / Referensi ({sources.length})
+          <span className="flex items-center gap-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+            <BookOpen className="w-5 h-5" style={{ color: '#06b6d4' }} />
+            Sources ({sources.length})
           </span>
           {showSources ? (
-            <Minus className="w-5 h-5 text-cyan-400" />
+            <Minus className="w-5 h-5" style={{ color: '#06b6d4' }} />
           ) : (
-            <Plus className="w-5 h-5 text-cyan-400" />
+            <Plus className="w-5 h-5" style={{ color: '#06b6d4' }} />
           )}
         </button>
 
         {showSources && (
-          <div className="mt-4 space-y-4 animate-fade-in">
-            {/* Existing Sources */}
+          <div className="mt-4 space-y-4 animate-fade-up">
             {sources.length > 0 && (
               <div className="space-y-2">
                 {sources.map((source) => {
-                  const sourceType = SOURCE_TYPES.find(t => t.key === source.type) || SOURCE_TYPES[0];
+                  const type = SOURCE_TYPES.find(t => t.key === source.type) || SOURCE_TYPES[0];
                   return (
-                    <div key={source.id} className="p-3 rounded-xl bg-white/5 border border-cyan-500/20">
+                    <div
+                      key={source.id}
+                      className="p-3 rounded-xl border"
+                      style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border)' }}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm">{sourceType.icon}</span>
-                            <span className="font-semibold text-white text-sm truncate">{source.title}</span>
+                            <span>{type.icon}</span>
+                            <span className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                              {source.title}
+                            </span>
                           </div>
                           {source.author && (
-                            <p className="text-xs text-slate-400">{source.author}</p>
+                            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                              {source.author}
+                            </p>
                           )}
                           {source.url && (
                             <a
                               href={source.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 mt-1"
+                              className="text-xs flex items-center gap-1 mt-1"
+                              style={{ color: '#06b6d4' }}
                             >
                               <ExternalLink className="w-3 h-3" />
-                              Buka Link
+                              Open link
                             </a>
                           )}
                         </div>
                         <button
                           type="button"
                           onClick={() => handleRemoveSource(source.id)}
-                          className="p-2 rounded-lg hover:bg-rose-500/20 text-rose-400 transition-all"
+                          className="p-1.5 rounded-lg transition-all hover:bg-red-100"
+                          style={{ color: '#f43f5e' }}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -352,75 +380,69 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
               </div>
             )}
 
-            {/* Add New Source */}
-            <div className="space-y-3 pt-3 border-t border-white/10">
-              <p className="text-xs text-slate-500 font-semibold">Tambah Sumber Baru:</p>
-
+            <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
               <input
                 type="text"
                 value={newSource.title}
                 onChange={(e) => setNewSource(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Judul sumber (wajib)"
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 text-sm focus:border-cyan-500 transition-all"
+                placeholder="Source title"
+                className="text-sm"
               />
-
               <input
                 type="text"
                 value={newSource.author}
                 onChange={(e) => setNewSource(prev => ({ ...prev, author: e.target.value }))}
-                placeholder="Penulis / Pengarang"
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 text-sm focus:border-cyan-500 transition-all"
+                placeholder="Author"
+                className="text-sm"
               />
-
               <input
                 type="url"
                 value={newSource.url}
                 onChange={(e) => setNewSource(prev => ({ ...prev, url: e.target.value }))}
-                placeholder="Link URL (opsional)"
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 text-sm focus:border-cyan-500 transition-all"
+                placeholder="URL (optional)"
+                className="text-sm"
               />
-
               <select
                 value={newSource.type}
                 onChange={(e) => setNewSource(prev => ({ ...prev, type: e.target.value }))}
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-cyan-500 transition-all"
+                className="text-sm"
               >
                 {SOURCE_TYPES.map((type) => (
-                  <option key={type.key} value={type.key} className="bg-slate-900">
-                    {type.label}
-                  </option>
+                  <option key={type.key} value={type.key}>{type.label}</option>
                 ))}
               </select>
-
               <button
                 type="button"
                 onClick={handleAddSource}
                 disabled={!newSource.title.trim()}
-                className="w-full py-3 rounded-xl bg-cyan-600/20 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-600/30 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{
+                  background: 'var(--accent-soft)',
+                  color: 'var(--accent)'
+                }}
               >
-                <Plus className="w-4 h-4" />
-                Tambah Sumber
+                Add Source
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Related Hypotheses */}
-      <div className="glass-card rounded-2xl p-5">
+      {/* Related */}
+      <div className="card p-5">
         <button
           type="button"
           onClick={() => setShowRelatedSelector(!showRelatedSelector)}
           className="w-full flex items-center justify-between"
         >
-          <span className="font-semibold text-slate-200 flex items-center gap-2">
-            <Link2 className="w-5 h-5 text-purple-400" />
-            🔗 Hipotesa Terkait ({relatedIds.length})
+          <span className="flex items-center gap-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+            <Link2 className="w-5 h-5" style={{ color: '#8b5cf6' }} />
+            Related ({relatedIds.length})
           </span>
           {showRelatedSelector ? (
-            <Minus className="w-5 h-5 text-purple-400" />
+            <Minus className="w-5 h-5" style={{ color: '#8b5cf6' }} />
           ) : (
-            <Plus className="w-5 h-5 text-purple-400" />
+            <Plus className="w-5 h-5" style={{ color: '#8b5cf6' }} />
           )}
         </button>
 
@@ -431,16 +453,18 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
               .map((h) => (
                 <label
                   key={h.id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition-all"
+                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
+                  style={{ background: 'var(--bg-tertiary)' }}
                 >
                   <input
                     type="checkbox"
                     checked={relatedIds.includes(h.id)}
                     onChange={() => toggleRelated(h.id)}
-                    className="w-5 h-5 rounded border-purple-500/50 text-purple-500 focus:ring-purple-500"
+                    className="w-4 h-4 rounded"
+                    style={{ accentColor: 'var(--accent)' }}
                   />
-                  <span className="text-sm text-slate-300 truncate flex-1">
-                    {h.title || 'Tanpa Judul'}
+                  <span className="text-sm truncate flex-1" style={{ color: 'var(--text-primary)' }}>
+                    {h.title || 'Untitled'}
                   </span>
                 </label>
               ))}
@@ -448,31 +472,32 @@ export default function InputForm({ onSave, existingHypotheses = [], editMode, o
         )}
       </div>
 
-      {/* Submit Button */}
+      {/* Submit */}
       <button
         type="submit"
         disabled={saving || (!content.trim() && !hypothesis.trim())}
-        className="w-full py-5 rounded-2xl gradient-btn text-white font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
+        className="btn btn-primary w-full py-4 text-base"
       >
         {saving ? (
           <>
-            <span className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-            Menyimpan...
+            <span
+              className="w-5 h-5 rounded-full animate-spin"
+              style={{ borderWidth: '2px', borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }}
+            />
+            Saving...
           </>
         ) : (
           <>
-            <Save className="w-6 h-6" />
-            {editMode ? 'Update Hipotesa' : 'Simpan Hipotesa'}
+            <Save className="w-5 h-5" />
+            {editMode ? 'Update Journal' : 'Save Journal'}
           </>
         )}
       </button>
 
       {/* Title Preview */}
-      <div className="text-center">
-        <p className="text-xs text-slate-600">
-          Judul: <span className="text-slate-400">{title}</span>
-        </p>
-      </div>
+      <p className="text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>
+        Title: <span style={{ color: 'var(--text-secondary)' }}>{title}</span>
+      </p>
     </form>
   );
 }

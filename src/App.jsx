@@ -5,7 +5,7 @@ import BottomNav from './components/BottomNav';
 import InputForm from './components/InputForm';
 import Archive from './components/Archive';
 import HypothesisDetail from './components/HypothesisDetail';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Sparkles } from 'lucide-react';
 
 function AppContent() {
   const {
@@ -83,7 +83,7 @@ function AppContent() {
         setActiveTab('archive');
       }
     } catch (err) {
-      console.error('Failed to get random hypothesis:', err);
+      console.error('Failed to get random:', err);
     }
   }, [getRandomHypothesis]);
 
@@ -120,57 +120,95 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--bg-secondary)] border-b border-[var(--border)] px-4 py-3">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
+      <header
+        className="sticky top-0 z-40 border-b px-5 py-4"
+        style={{
+          background: 'var(--bg-secondary)',
+          borderColor: 'var(--border)'
+        }}
+      >
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[var(--purple)] to-[var(--accent)] flex items-center justify-center">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+            <div
+              className="w-10 h-10 rounded-2xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, var(--orange-400), var(--accent))' }}
+            >
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-lg text-[var(--text-primary)] logo-text">
+              <h1
+                className="font-serif font-semibold text-xl tracking-tight"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 Hipotesa
               </h1>
-              <p className="text-[10px] text-[var(--text-tertiary)] -mt-1">
-                {hypotheses.length} catatan
+              <p
+                className="text-xs -mt-0.5"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {hypotheses.length} journals
               </p>
             </div>
           </div>
 
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="w-10 h-10 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
-          </button>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {/* Status */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: 'var(--bg-tertiary)' }}>
+              <span
+                className="status-dot"
+                style={{ background: isConnected ? '#22c55e' : 'var(--slate-400)' }}
+              />
+              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {isConnected ? 'Online' : 'Offline'}
+              </span>
+            </div>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+              style={{ background: 'var(--bg-tertiary)' }}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5" style={{ color: 'var(--orange-400)' }} />
+              ) : (
+                <Moon className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-5 py-6">
         {/* Connection Status */}
         {!isConnected && (
-          <div className="mb-4 p-3 rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] text-sm flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
-            Offline - Data dari cache lokal
+          <div
+            className="mb-4 p-3 rounded-xl text-sm flex items-center gap-2"
+            style={{
+              background: 'var(--accent-soft)',
+              color: 'var(--accent)'
+            }}
+          >
+            <span className="status-dot offline" />
+            Offline — Data dari cache lokal
           </div>
         )}
 
-        {/* Error Banner */}
+        {/* Error */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-[rgba(244,63,94,0.1)] border border-[var(--rose)]/20 text-[var(--rose)] text-sm">
+          <div
+            className="mb-4 p-3 rounded-xl text-sm"
+            style={{
+              background: 'rgba(244, 63, 94, 0.1)',
+              color: '#f43f5e'
+            }}
+          >
             {error}
           </div>
         )}
@@ -178,8 +216,17 @@ function AppContent() {
         {/* Loading */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-10 h-10 border-3 border-[var(--border)] border-t-[var(--accent)] rounded-full animate-spin mb-4" />
-            <p className="text-[var(--text-tertiary)]">Memuat...</p>
+            <div
+              className="w-10 h-10 rounded-full animate-spin"
+              style={{
+                borderWidth: '3px',
+                borderColor: 'var(--border)',
+                borderTopColor: 'var(--accent)'
+              }}
+            />
+            <p className="mt-4 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              Loading...
+            </p>
           </div>
         )}
 
