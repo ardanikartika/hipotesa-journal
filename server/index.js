@@ -223,8 +223,12 @@ app.get('/api/health', (req, res) => {
 
 // Serve frontend for all other routes (SPA support)
 if (IS_PRODUCTION && fs.existsSync(FRONTEND_DIST)) {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+  app.use((req, res, next) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+    } else {
+      next();
+    }
   });
 }
 
