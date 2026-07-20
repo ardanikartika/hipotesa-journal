@@ -1,75 +1,117 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
+const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'hypotheses.json');
-const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
+
+// PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Serve static frontend in production
-if (IS_PRODUCTION && fs.existsSync(FRONTEND_DIST)) {
-  app.use(express.static(FRONTEND_DIST));
-}
-
-// Ensure data directory exists
-const dataDir = path.dirname(DATA_FILE);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-// Initialize data file if not exists
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ hypotheses: [], lastUpdated: null }, null, 2));
-}
-
-// Helper function to read data
-function readData() {
+// Initialize database tables
+async function initDB() {
+  const client = await pool.connect();
   try {
-    const data = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error reading data:', error);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS hypotheses (
+        id VARCHAR(255) PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ Database tables initialized');
+  } catch (err) {
+    console.error('❌ Database initialization error:', err);
+  } finally {
+    client.release();
+  }
+}
+
+initDB();
+
+// Helper: Get all hypotheses
+async function getAllHypotheses() {
+  try {
+    const result = await pool.query(
+      'SELECT data FROM hypotheses ORDER BY created_at DESC'
+    );
+    const hypotheses = result.rows.map(row => row.data);
+    return { hypotheses, lastUpdated: new Date().toISOString() };
+  } catch (err) {
+    console.error('Error getting hypotheses:', err);
     return { hypotheses: [], lastUpdated: null };
   }
 }
 
-// Helper function to write data
-function writeData(data) {
+// Helper: Get single hypothesis
+async function getHypothesisById(id) {
   try {
-    data.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    const result = await pool.query(
+      'SELECT data FROM hypotheses WHERE id = $1',
+      [id]
+    );
+    return result.rows[0]?.data || null;
+  } catch (err) {
+    console.error('Error getting hypothesis:', err);
+    return null;
+  }
+}
+
+// Helper: Save hypothesis
+async function saveHypothesis(hypothesis) {
+  try {
+    const jsonData = JSON.stringify(hypothesis);
+    await pool.query(
+      `INSERT INTO hypotheses (id, data, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (id) DO UPDATE SET data = $2, updated_at = NOW()`,
+      [hypothesis.id, jsonData]
+    );
     return true;
-  } catch (error) {
-    console.error('Error writing data:', error);
+  } catch (err) {
+    console.error('Error saving hypothesis:', err);
+    return false;
+  }
+}
+
+// Helper: Delete hypothesis
+async function deleteHypothesis(id) {
+  try {
+    await pool.query('DELETE FROM hypotheses WHERE id = $1', [id]);
+    return true;
+  } catch (err) {
+    console.error('Error deleting hypothesis:', err);
     return false;
   }
 }
 
 // API Routes
-app.get('/api/hypotheses', (req, res) => {
-  const data = readData();
+app.get('/api/hypotheses', async (req, res) => {
+  const data = await getAllHypotheses();
   res.json(data);
 });
 
-app.get('/api/hypotheses/:id', (req, res) => {
-  const data = readData();
-  const hypothesis = data.hypotheses.find(h => h.id === req.params.id);
+app.get('/api/hypotheses/:id', async (req, res) => {
+  const hypothesis = await getHypothesisById(req.params.id);
   if (!hypothesis) {
     return res.status(404).json({ error: 'Hypothesis not found' });
   }
   res.json(hypothesis);
 });
 
-app.post('/api/hypotheses', (req, res) => {
-  const data = readData();
+app.post('/api/hypotheses', async (req, res) => {
   const newHypothesis = {
     id: uuidv4(),
     ...req.body,
@@ -82,20 +124,16 @@ app.post('/api/hypotheses', (req, res) => {
     newHypothesis.title = words.join(' ') + (newHypothesis.content.trim().split(/\s+/).length > 5 ? '...' : '');
   }
 
-  data.hypotheses.unshift(newHypothesis);
-
-  if (writeData(data)) {
+  if (await saveHypothesis(newHypothesis)) {
     res.status(201).json(newHypothesis);
   } else {
     res.status(500).json({ error: 'Failed to save hypothesis' });
   }
 });
 
-app.put('/api/hypotheses/:id', (req, res) => {
-  const data = readData();
-  const index = data.hypotheses.findIndex(h => h.id === req.params.id);
-
-  if (index === -1) {
+app.put('/api/hypotheses/:id', async (req, res) => {
+  const existing = await getHypothesisById(req.params.id);
+  if (!existing) {
     return res.status(404).json({ error: 'Hypothesis not found' });
   }
 
@@ -105,47 +143,35 @@ app.put('/api/hypotheses/:id', (req, res) => {
     updates.title = words.join(' ') + (updates.content.trim().split(/\s+/).length > 5 ? '...' : '');
   }
 
-  data.hypotheses[index] = {
-    ...data.hypotheses[index],
+  const updated = {
+    ...existing,
     ...updates,
     updatedAt: new Date().toISOString()
   };
 
-  if (writeData(data)) {
-    res.json(data.hypotheses[index]);
+  if (await saveHypothesis(updated)) {
+    res.json(updated);
   } else {
     res.status(500).json({ error: 'Failed to update hypothesis' });
   }
 });
 
-app.delete('/api/hypotheses/:id', (req, res) => {
-  const data = readData();
-  const index = data.hypotheses.findIndex(h => h.id === req.params.id);
-
-  if (index === -1) {
+app.delete('/api/hypotheses/:id', async (req, res) => {
+  const existing = await getHypothesisById(req.params.id);
+  if (!existing) {
     return res.status(404).json({ error: 'Hypothesis not found' });
   }
 
-  const deleted = data.hypotheses.splice(index, 1)[0];
-
-  data.hypotheses.forEach(h => {
-    if (h.relatedIds && h.relatedIds.includes(req.params.id)) {
-      h.relatedIds = h.relatedIds.filter(id => id !== req.params.id);
-    }
-  });
-
-  if (writeData(data)) {
-    res.json({ message: 'Hypothesis deleted', id: deleted.id });
+  if (await deleteHypothesis(req.params.id)) {
+    res.json({ message: 'Hypothesis deleted', id: req.params.id });
   } else {
     res.status(500).json({ error: 'Failed to delete hypothesis' });
   }
 });
 
-app.post('/api/hypotheses/:id/timeline', (req, res) => {
-  const data = readData();
-  const index = data.hypotheses.findIndex(h => h.id === req.params.id);
-
-  if (index === -1) {
+app.post('/api/hypotheses/:id/timeline', async (req, res) => {
+  const hypothesis = await getHypothesisById(req.params.id);
+  if (!hypothesis) {
     return res.status(404).json({ error: 'Hypothesis not found' });
   }
 
@@ -155,21 +181,21 @@ app.post('/api/hypotheses/:id/timeline', (req, res) => {
     content: req.body.content
   };
 
-  if (!data.hypotheses[index].timeline) {
-    data.hypotheses[index].timeline = [];
+  if (!hypothesis.timeline) {
+    hypothesis.timeline = [];
   }
-  data.hypotheses[index].timeline.push(timelineUpdate);
-  data.hypotheses[index].updatedAt = new Date().toISOString();
+  hypothesis.timeline.push(timelineUpdate);
+  hypothesis.updatedAt = new Date().toISOString();
 
-  if (writeData(data)) {
+  if (await saveHypothesis(hypothesis)) {
     res.json(timelineUpdate);
   } else {
     res.status(500).json({ error: 'Failed to add timeline update' });
   }
 });
 
-app.get('/api/hypotheses/random', (req, res) => {
-  const data = readData();
+app.get('/api/hypotheses/random', async (req, res) => {
+  const data = await getAllHypotheses();
   if (data.hypotheses.length === 0) {
     return res.status(404).json({ error: 'No hypotheses found' });
   }
@@ -177,29 +203,30 @@ app.get('/api/hypotheses/random', (req, res) => {
   res.json(data.hypotheses[randomIndex]);
 });
 
-app.get('/api/export', (req, res) => {
-  const data = readData();
+app.get('/api/export', async (req, res) => {
+  const data = await getAllHypotheses();
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Content-Disposition', `attachment; filename=hypotheses-backup-${Date.now()}.json`);
   res.json(data);
 });
 
-app.post('/api/import', (req, res) => {
+app.post('/api/import', async (req, res) => {
   const importedData = req.body;
 
   if (!importedData || !Array.isArray(importedData.hypotheses)) {
     return res.status(400).json({ error: 'Invalid data format' });
   }
 
-  if (writeData(importedData)) {
-    res.json({ message: 'Data imported successfully', count: importedData.hypotheses.length });
-  } else {
-    res.status(500).json({ error: 'Failed to import data' });
+  let saved = 0;
+  for (const h of importedData.hypotheses) {
+    if (await saveHypothesis(h)) saved++;
   }
+
+  res.json({ message: 'Data imported successfully', count: saved });
 });
 
-app.get('/api/sync', (req, res) => {
-  const data = readData();
+app.get('/api/sync', async (req, res) => {
+  const data = await getAllHypotheses();
   const clientLastUpdate = req.query.lastUpdate;
 
   if (!clientLastUpdate) {
@@ -217,25 +244,32 @@ app.get('/api/sync', (req, res) => {
   });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.json({ status: 'ok', database: 'disconnected', timestamp: new Date().toISOString() });
+  }
 });
 
-// Serve frontend for all other routes (SPA support)
-if (IS_PRODUCTION && fs.existsSync(FRONTEND_DIST)) {
-  app.use((req, res, next) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
-    } else {
-      next();
-    }
-  });
+// Serve frontend in production
+if (IS_PRODUCTION) {
+  const fs = require('fs');
+  const path = require('path');
+  const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
+
+  if (fs.existsSync(FRONTEND_DIST)) {
+    app.use(express.static(FRONTEND_DIST));
+    app.get('*', (req, res) => {
+      if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+      }
+    });
+  }
 }
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Hipotesa Journal running on http://0.0.0.0:${PORT}`);
-  if (IS_PRODUCTION) {
-    console.log(`📦 Production mode - serving static files from ${FRONTEND_DIST}`);
-  }
-  console.log(`📊 Data file: ${DATA_FILE}`);
+  console.log(`🗄️ Database: PostgreSQL`);
 });
