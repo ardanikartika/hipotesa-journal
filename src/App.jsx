@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { AppProvider, useApp, useTheme } from './context/AppContext';
+import { AppProvider, useApp } from './context/AppContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import BottomNav from './components/BottomNav';
 import InputForm from './components/InputForm';
 import Archive from './components/Archive';
