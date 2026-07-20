@@ -6,6 +6,7 @@ export default function VoiceInput({ onTranscript, disabled }) {
   const [isSupported, setIsSupported] = useState(true);
   const recognitionRef = useRef(null);
   const finalTranscriptRef = useRef('');
+  const isManualStopRef = useRef(false);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -22,6 +23,7 @@ export default function VoiceInput({ onTranscript, disabled }) {
 
     recognition.onstart = () => {
       setIsListening(true);
+      isManualStopRef.current = false;
       finalTranscriptRef.current = '';
     };
 
@@ -42,27 +44,43 @@ export default function VoiceInput({ onTranscript, disabled }) {
     };
 
     recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
+      console.log('Speech recognition error:', event.error);
+      // Don't stop on these errors
       if (event.error === 'no-speech' || event.error === 'aborted') {
         return;
       }
-      setIsListening(false);
+      // For other errors, try to restart if not manually stopped
+      if (!isManualStopRef.current && recognitionRef.current) {
+        try {
+          // Don't restart on error
+          setIsListening(false);
+        } catch (e) {
+          // Ignore
+        }
+      }
     };
 
     recognition.onend = () => {
-      setIsListening(false);
-      if (recognitionRef.current) {
+      // Only set listening to false if manually stopped, or if there's a final transcript
+      if (isManualStopRef.current) {
+        setIsListening(false);
+        isManualStopRef.current = false;
+      } else if (!finalTranscriptRef.current) {
+        // If ended without manual stop and no transcript, restart
         try {
-          recognitionRef.current.start();
+          recognitionRef.current?.start();
         } catch (e) {
-          // Already started or not supported
+          setIsListening(false);
         }
+      } else {
+        setIsListening(false);
       }
     };
 
     recognitionRef.current = recognition;
 
     return () => {
+      isManualStopRef.current = true;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -77,13 +95,16 @@ export default function VoiceInput({ onTranscript, disabled }) {
     if (!recognitionRef.current || !isSupported) return;
 
     if (isListening) {
+      // Manual stop
+      isManualStopRef.current = true;
       try {
         recognitionRef.current.stop();
       } catch (e) {
-        // Ignore
+        console.error('Failed to stop recognition:', e);
+        setIsListening(false);
       }
-      setIsListening(false);
     } else {
+      // Start recording
       try {
         finalTranscriptRef.current = '';
         recognitionRef.current.start();
@@ -110,7 +131,7 @@ export default function VoiceInput({ onTranscript, disabled }) {
         disabled={disabled}
         className={`relative flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
           isListening
-            ? 'bg-rose-600 shadow-lg shadow-rose-500/40 glow-purple'
+            ? 'bg-rose-600 shadow-lg shadow-rose-500/40'
             : 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/40 hover:shadow-purple-500/60'
         }`}
       >
@@ -144,7 +165,7 @@ export default function VoiceInput({ onTranscript, disabled }) {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
           </span>
-          <span className="text-sm font-semibold">Merekam...</span>
+          <span className="text-sm font-semibold">Tekan mic untuk stop</span>
         </div>
       )}
     </div>
