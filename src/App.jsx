@@ -313,18 +313,17 @@ function SettingsView({ onExport, onImport, onRefresh, onBack }) {
 
 function ArticleCard({ item, onClick }) {
   const topic = TOPICS.find(t => t.key === item.topic);
-  const authorAvatar = getAuthorAvatar(item.author);
   const sourceCount = item.sources?.length || 0;
 
   // Get first image from sources
-  const coverImage = item.sources?.find(s => s.url && (s.url.match(/\.(jpg|jpeg|png|gif|webp)$/i) || s.type === 'image'));
+  const coverImage = item.sources?.find(s => s.image);
 
   return (
     <div onClick={onClick} className="article-card">
       {/* Cover Image */}
-      {coverImage && (
+      {coverImage?.image && (
         <div className="card-cover">
-          <img src={coverImage.url} alt="cover" className="cover-image" />
+          <img src={coverImage.image} alt="cover" className="cover-image" />
         </div>
       )}
 
@@ -338,10 +337,8 @@ function ArticleCard({ item, onClick }) {
 
       {/* Footer - Tag + Author + Date */}
       <div className="card-footer-new">
-        {topic && (
-          <span className="topic-badge">{topic.emoji} {topic.label}</span>
-        )}
-        <span className="author-date">
+        {topic && <span className="topic-badge">{topic.emoji} {topic.label}</span>}
+        <span className="card-meta">
           {sourceCount > 0 && <span>📚 {sourceCount} • </span>}
           Oleh {item.author || 'Anonim'} • {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
         </span>
@@ -457,12 +454,38 @@ function EditView({ item, onSave, onCancel }) {
                   placeholder="Judul sumber..."
                   className="text-sm"
                 />
-                <input
-                  value={newSource.url}
-                  onChange={e => setNewSource(p => ({ ...p, url: e.target.value }))}
-                  placeholder="URL foto atau link..."
-                  className="text-sm"
-                />
+                <div className="flex gap-2">
+                  <input
+                    value={newSource.url || ''}
+                    onChange={e => setNewSource(p => ({ ...p, url: e.target.value, image: null }))}
+                    placeholder="Atau paste URL..."
+                    className="text-sm flex-1"
+                  />
+                  <label className="source-upload-btn">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            setNewSource(p => ({ ...p, image: ev.target?.result, url: '', title: p.title || file.name }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <span className="text-xs">📷</span>
+                  </label>
+                </div>
+                {newSource.image && (
+                  <div className="relative">
+                    <img src={newSource.image} alt="preview" className="w-full h-32 object-cover rounded-lg" />
+                    <button type="button" onClick={() => setNewSource(p => ({ ...p, image: null }))} className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✕</button>
+                  </div>
+                )}
                 <button type="button" onClick={addSource} disabled={!newSource.title.trim()}
                   className="w-full py-2 text-sm font-medium rounded-lg"
                   style={{ background: 'var(--bg)', color: 'var(--primary)' }}>
@@ -472,12 +495,15 @@ function EditView({ item, onSave, onCancel }) {
 
               {/* Source List */}
               {sources.map((s, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{s.title}</p>
-                    {s.url && <p className="text-xs truncate" style={{ color: 'var(--primary)' }}>{s.url}</p>}
+                <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{s.title}</p>
+                      {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs truncate block" style={{ color: 'var(--primary)' }}>🔗 {s.url}</a>}
+                      {s.image && <img src={s.image} alt={s.title} className="mt-2 w-full h-24 object-cover rounded-lg" />}
+                    </div>
+                    <button type="button" onClick={() => removeSource(i)} className="text-red-500 text-xs shrink-0">✕</button>
                   </div>
-                  <button type="button" onClick={() => removeSource(i)} className="ml-2 text-red-500 text-xs">✕</button>
                 </div>
               ))}
             </div>
@@ -526,11 +552,12 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
     if (newSource.title.trim()) {
       onAddSource({
         title: newSource.title.trim(),
-        url: newSource.url.trim(),
+        url: newSource.url?.trim() || '',
+        image: newSource.image || null,
         status: 'to-read',
         dateAdded: new Date().toISOString()
       });
-      setNewSource({ title: '', url: '' });
+      setNewSource({ title: '', url: '', image: null });
     }
   };
 
@@ -602,8 +629,34 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
             {showSources && (
               <div className="space-y-3">
                 <div className="source-form">
-                  <input value={newSource.title} onChange={(e) => setNewSource(p => ({ ...p, title: e.target.value }))} placeholder="Judul paper, buku, atau artikel..." className="text-sm" />
-                  <input value={newSource.url} onChange={(e) => setNewSource(p => ({ ...p, url: e.target.value }))} placeholder="URL (opsional)" className="text-sm" />
+                  <input value={newSource.title} onChange={(e) => setNewSource(p => ({ ...p, title: e.target.value }))} placeholder="Judul sumber..." className="text-sm" />
+                  <div className="flex gap-2">
+                    <input value={newSource.url || ''} onChange={(e) => setNewSource(p => ({ ...p, url: e.target.value, image: null }))} placeholder="URL..." className="text-sm flex-1" />
+                    <label className="source-upload-btn">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              setNewSource(p => ({ ...p, image: ev.target?.result, url: '', title: p.title || file.name }));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <span>📷</span>
+                    </label>
+                  </div>
+                  {newSource.image && (
+                    <div className="relative">
+                      <img src={newSource.image} alt="preview" className="w-full h-32 object-cover rounded-lg" />
+                      <button type="button" onClick={() => setNewSource(p => ({ ...p, image: null }))} className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✕</button>
+                    </div>
+                  )}
                   <button onClick={handleAddSource} disabled={!newSource.title.trim()} className="btn-primary text-sm py-2">+ Tambah</button>
                 </div>
 
@@ -614,8 +667,9 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
 
                   return (
                     <div key={i} className="source-card">
+                      {s.image && <img src={s.image} alt={s.title} className="w-full h-40 object-cover rounded-lg mb-2" />}
                       <div className="flex items-start gap-3">
-                        <span className="text-lg mt-0.5">📄</span>
+                        {!s.image && <span className="text-lg mt-0.5">📄</span>}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium">{s.title}</p>
                           {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs source-link">🔗 {s.url.length > 40 ? s.url.substring(0, 40) + '...' : s.url}</a>}
