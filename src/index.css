@@ -305,7 +305,7 @@ body {
   color: var(--text);
 }
 
-.card-desc {
+.card-hypothesis {
   font-size: 14px;
   color: var(--muted);
   line-height: 1.6;

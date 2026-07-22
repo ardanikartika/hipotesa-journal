@@ -313,7 +313,6 @@ function SettingsView({ onExport, onImport, onRefresh, onBack }) {
 
 function ArticleCard({ item, onClick }) {
   const topic = TOPICS.find(t => t.key === item.topic);
-  const sourceCount = item.sources?.length || 0;
 
   // Get first image from sources
   const coverImage = item.sources?.find(s => s.image);
@@ -330,9 +329,9 @@ function ArticleCard({ item, onClick }) {
       {/* Title - Bold & Big */}
       <h3 className="card-title-hero">{item.title || 'Tanpa judul'}</h3>
 
-      {/* Description - The actual content */}
-      {item.content && (
-        <p className="card-desc">{item.content}</p>
+      {/* Hypothesis Content */}
+      {item.hypothesis && (
+        <p className="card-hypothesis">{item.hypothesis}</p>
       )}
 
       {/* Footer - Tag + Author + Date */}
