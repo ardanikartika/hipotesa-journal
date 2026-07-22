@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useApp } from './context/AppContext';
-import { Plus, X, Search, Download, Upload } from 'lucide-react';
+import { Plus, X, Search, Download, Upload, Sparkles } from 'lucide-react';
 import api from './utils/api';
 
 // Topik riset
@@ -21,10 +21,22 @@ const TOPICS = [
 ];
 
 function App() {
-  const { hypotheses, createHypothesis, updateHypothesis, deleteHypothesis, addTimeline, getRandomHypothesis, getHypothesisById } = useApp();
+  const { hypotheses, createHypothesis, updateHypothesis, deleteHypothesis, addTimeline, getHypothesisById, refreshData } = useApp();
   const [tab, setTab] = useState('list');
   const [selected, setSelected] = useState(null);
   const [editMode, setEditMode] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTopic, setFilterTopic] = useState('');
+
+  // Filter & Search
+  const filteredHypotheses = hypotheses.filter(h => {
+    const matchSearch = !searchQuery ||
+      h.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      h.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      h.author?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchTopic = !filterTopic || h.topic === filterTopic;
+    return matchSearch && matchTopic;
+  });
 
   const handleSave = useCallback(async (data) => {
     if (data.id) await updateHypothesis(data.id, data);
@@ -59,11 +71,6 @@ function App() {
     if (h) setSelected(h);
   }, [getHypothesisById]);
 
-  const handleRandom = useCallback(async () => {
-    const r = await getRandomHypothesis();
-    if (r) { setSelected(r); setTab('detail'); }
-  }, [getRandomHypothesis]);
-
   const handleExport = async () => {
     try {
       const data = await api.exportData();
@@ -86,7 +93,7 @@ function App() {
       const text = await file.text();
       const data = JSON.parse(text);
       await api.importData(data);
-      window.location.reload();
+      refreshData();
     } catch (err) {
       console.error('Import failed:', err);
     }
@@ -101,7 +108,6 @@ function App() {
         onDelete={handleDelete}
         onTimeline={handleTimeline}
         onRelated={handleRelated}
-        onRandom={handleRandom}
         onBack={() => { setSelected(null); setTab('list'); }}
       />
     );
@@ -118,83 +124,131 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
-      <header className="sticky top-0 z-30 px-6 py-5" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold">Hipotesa</h1>
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>{hypotheses.length} jurnal</p>
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
+      {/* Header */}
+      <header className="header-blur sticky top-0 z-30 px-6 py-4">
+        <div className="header-container">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="logo-icon">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold">Hipotesa</h1>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>Gugah & Tika</p>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={handleRandom} className="p-3 rounded-xl" style={{ background: 'var(--bg)' }} title="Random">🎲</button>
-            <button onClick={handleExport} className="p-3 rounded-xl" style={{ background: 'var(--bg)' }} title="Export"><Download className="w-5 h-5" /></button>
-            <label className="p-3 rounded-xl cursor-pointer" style={{ background: 'var(--bg)' }} title="Import">
+
+          {/* Search */}
+          <div className="search-bar">
+            <Search className="w-4 h-4" style={{ color: 'var(--muted)' }} />
+            <input
+              type="text"
+              placeholder="Cari jurnal..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="clear-btn">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <button onClick={handleExport} className="icon-btn" title="Export">
+              <Download className="w-5 h-5" />
+            </button>
+            <label className="icon-btn cursor-pointer" title="Import">
               <Upload className="w-5 h-5" />
               <input type="file" accept=".json" onChange={handleImport} className="hidden" />
             </label>
           </div>
         </div>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--muted)' }} />
-          <input
-            type="text"
-            placeholder="Cari jurnal..."
-            className="pl-12"
-          />
-        </div>
       </header>
 
       {/* Topic Filter */}
-      <div className="px-6 py-3 flex gap-2 overflow-x-auto">
-        <button className="filter-pill active">Semua</button>
-        {TOPICS.map(t => (
-          <button key={t.key} className="filter-pill">{t.emoji} {t.label}</button>
-        ))}
+      <div className="px-6 py-4">
+        <div className="topic-filter">
+          <button
+            onClick={() => setFilterTopic('')}
+            className={`filter-pill ${filterTopic === '' ? 'active' : ''}`}
+          >
+            Semua
+          </button>
+          {TOPICS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setFilterTopic(filterTopic === t.key ? '' : t.key)}
+              className={`filter-pill ${filterTopic === t.key ? 'active' : ''}`}
+            >
+              {t.emoji} {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <main className="px-6 py-4">
-        {hypotheses.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-5xl mb-4">📝</div>
-            <p className="font-semibold mb-2">Belum ada jurnal</p>
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>Tekan tombol + untuk membuat</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {hypotheses.map(h => (
-              <ItemCard key={h.id} item={h} onClick={() => handleSelect(h.id)} />
-            ))}
-          </div>
-        )}
+      {/* Feed */}
+      <main className="px-6 pb-24">
+        <div className="feed-container">
+          {filteredHypotheses.length === 0 ? (
+            <div className="empty-state">
+              <div className="text-6xl mb-4">✨</div>
+              <p className="font-medium mb-1">Belum ada jurnal</p>
+              <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                {searchQuery ? 'Tidak ditemukan' : 'Mulai tulis jurnal pertamamu'}
+              </p>
+            </div>
+          ) : (
+            <div className="card-grid">
+              {filteredHypotheses.map(h => (
+                <ArticleCard key={h.id} item={h} onClick={() => handleSelect(h.id)} />
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0" style={{ background: 'var(--card)', borderTop: '1px solid var(--border)' }}>
-        <button onClick={() => setTab('new')} className="w-full py-4 flex items-center justify-center gap-3 font-semibold" style={{ color: 'white', background: 'var(--primary)' }}>
-          <Plus className="w-5 h-5" /> Baru
-        </button>
-      </div>
+      {/* FAB */}
+      <button onClick={() => setTab('new')} className="fab-button">
+        <Plus className="w-5 h-5" />
+        <span>Hipotesa Baru</span>
+      </button>
     </div>
   );
 }
 
-function ItemCard({ item, onClick }) {
+function ArticleCard({ item, onClick }) {
   const topic = TOPICS.find(t => t.key === item.topic);
+  const firstLetter = (item.author || 'A')[0].toUpperCase();
 
   return (
-    <div onClick={onClick} className="card p-5 cursor-pointer animate" style={{ animation: 'fadeUp 0.3s ease' }}>
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg" style={{ background: 'var(--bg)' }}>
-          {topic ? topic.emoji : (item.title || 'U')[0].toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold mb-1 line-clamp-2">{item.title || 'Tanpa judul'}</h3>
-          <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>{item.author || 'Anonim'}</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {topic && <span className="badge badge-outline">{topic.emoji} {topic.label}</span>}
-          </div>
-        </div>
+    <div onClick={onClick} className="article-card">
+      {/* Author Avatar */}
+      <div className="card-author">
+        <div className="author-avatar">{firstLetter}</div>
+        <span className="author-name">Oleh {item.author || 'Anonim'}</span>
+      </div>
+
+      {/* Title */}
+      <h3 className="card-title">{item.title || 'Tanpa judul'}</h3>
+
+      {/* Preview */}
+      {item.content && (
+        <p className="card-preview">{item.content.substring(0, 100)}...</p>
+      )}
+
+      {/* Footer */}
+      <div className="card-footer">
+        {topic && (
+          <span className="topic-badge">
+            {topic.emoji} {topic.label}
+          </span>
+        )}
+        <span className="card-date">
+          {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+        </span>
       </div>
     </div>
   );
@@ -225,31 +279,34 @@ function EditView({ item, onSave, onCancel }) {
   return (
     <div className="min-h-screen pb-32" style={{ background: 'var(--bg)' }}>
       <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
-        <button onClick={onCancel} className="p-2 rounded-lg" style={{ background: 'var(--bg)' }}><X className="w-5 h-5" /></button>
-        <h1 className="font-semibold">{item ? 'Edit' : 'Baru'}</h1>
+        <button onClick={onCancel} className="p-2 rounded-lg" style={{ background: 'var(--bg)' }}>
+          <X className="w-5 h-5" />
+        </button>
+        <h1 className="font-semibold">{item ? 'Edit' : 'Hipotesa Baru'}</h1>
         <div className="w-10" />
       </header>
 
       <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Author</label>
-          <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="Nama..." />
+          <label className="text-sm font-medium block mb-2" style={{ color: 'var(--muted)' }}>Penulis</label>
+          <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="Nama kamu..." />
         </div>
 
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Content</label>
-          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Tulis jurnal kamu..." rows={6} />
+          <label className="text-sm font-medium block mb-2" style={{ color: 'var(--muted)' }}>Konten *</label>
+          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Tulis jurnal kamu..." rows={5} />
         </div>
 
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Topik</label>
+          <label className="text-sm font-medium block mb-3" style={{ color: 'var(--muted)' }}>Kategori</label>
           <div className="flex flex-wrap gap-2">
             {TOPICS.map(t => (
               <button key={t.key} type="button" onClick={() => setTopic(topic === t.key ? '' : t.key)}
-                className="px-4 py-2 rounded-full text-sm font-medium"
+                className="topic-btn"
                 style={{
-                  background: topic === t.key ? 'var(--primary)' : 'var(--bg)',
-                  color: topic === t.key ? 'white' : 'var(--muted)'
+                  background: topic === t.key ? 'var(--primary)' : 'var(--card)',
+                  color: topic === t.key ? 'white' : 'var(--text)',
+                  borderColor: topic === t.key ? 'var(--primary)' : 'var(--border)'
                 }}>
                 {t.emoji} {t.label}
               </button>
@@ -258,22 +315,22 @@ function EditView({ item, onSave, onCancel }) {
         </div>
 
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Hipotesa</label>
+          <label className="text-sm font-medium block mb-2" style={{ color: 'var(--muted)' }}>Hipotesa</label>
           <textarea value={hypothesis} onChange={e => setHypothesis(e.target.value)} placeholder="Hipotesa utama..." rows={3} />
         </div>
 
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Argumen Pendukung</label>
+          <label className="text-sm font-medium block mb-2" style={{ color: 'var(--muted)' }}>Argumen Pendukung</label>
           <textarea value={supporting} onChange={e => setSupporting(e.target.value)} placeholder="Argumen pendukung..." rows={3} />
         </div>
 
         <div>
-          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--muted)' }}>Kesimpulan</label>
+          <label className="text-sm font-medium block mb-2" style={{ color: 'var(--muted)' }}>Kesimpulan</label>
           <textarea value={conclusion} onChange={e => setConclusion(e.target.value)} placeholder="Kesimpulan..." rows={3} />
         </div>
 
         <button type="submit" disabled={saving || !content}
-          className="btn btn-primary w-full py-4" style={{ background: saving ? 'var(--muted)' : 'var(--primary)' }}>
+          className="btn-primary w-full py-4 font-semibold" style={{ background: saving ? 'var(--muted)' : 'var(--primary)', color: 'white', borderRadius: '16px' }}>
           {saving ? 'Menyimpan...' : '💾 Simpan'}
         </button>
       </form>
@@ -281,25 +338,18 @@ function EditView({ item, onSave, onCancel }) {
   );
 }
 
-function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onRandom, onBack }) {
+function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack }) {
   const [showTimeline, setShowTimeline] = useState(false);
   const [timelineContent, setTimelineContent] = useState('');
   const [copied, setCopied] = useState(false);
 
   const topic = TOPICS.find(t => t.key === item.topic);
-  const topicLabel = {
-    philosophy: 'Filsafat', economics: 'Ekonomi', business: 'Bisnis', religion: 'Agama',
-    science: 'Sains', tech: 'Teknologi', politics: 'Politik', art: 'Seni',
-    health: 'Kesehatan', education: 'Pendidikan', life: 'Kehidupan', parenting: 'Parenting', other: 'Lainnya'
-  };
-
-  const relatedItems = item.relatedIds?.map(id => all.find(h => h.id === id)).filter(Boolean) || [];
+  const firstLetter = (item.author || 'A')[0].toUpperCase();
 
   const handleShare = async () => {
     const text = [
       `📝 ${item.title || 'Tanpa judul'}`,
-      `Author: ${item.author || 'Anonim'}`,
-      topic ? `Topik: ${topicLabel[topic.key] || topic.key}` : '',
+      `Oleh: ${item.author || 'Anonim'}`,
       '',
       item.content,
       item.hypothesis ? `\n📌 Hipotesa:\n${item.hypothesis}` : '',
@@ -307,7 +357,7 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onRand
       item.conclusion || item.counter ? `\n✅ Kesimpulan:\n${item.conclusion || item.counter}` : '',
       '',
       '---',
-      'Via Hipotesa'
+      'Via Hipotesa - Gugah & Tika'
     ].filter(Boolean).join('\n');
     await navigator.clipboard.writeText(text);
     setCopied(true);
@@ -316,99 +366,129 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onRand
 
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
-      <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-        <button onClick={onBack} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>←</button>
+      <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
+        <button onClick={onBack} className="p-2 rounded-lg" style={{ background: 'var(--bg)' }}>←</button>
         <div className="flex gap-2">
-          <button onClick={onRandom} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>🎲</button>
-          <button onClick={onEdit} className="p-2 rounded-lg" style={{ background: 'var(--card)' }}>✏️</button>
-          <button onClick={onDelete} className="p-2 rounded-lg" style={{ background: '#FFE4E6', color: '#E11D48' }}>🗑️</button>
+          <button onClick={onEdit} className="p-2 rounded-lg" style={{ background: 'var(--bg)' }}>✏️</button>
+          <button onClick={onDelete} className="p-2 rounded-lg" style={{ background: '#FEE2E2' }}>🗑️</button>
         </div>
       </header>
 
       <main className="px-6 py-6">
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            {topic && <span className="badge badge-outline">{topic.emoji} {topic.label}</span>}
-          </div>
-          <h1 className="text-2xl font-bold mb-2">{item.title || 'Tanpa judul'}</h1>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            {item.author || 'Anonim'} • {new Date(item.createdAt).toLocaleDateString('id-ID')}
-          </p>
-        </div>
-
-        {item.content && <p className="mb-6 leading-relaxed" style={{ color: 'var(--muted)' }}>{item.content}</p>}
-
-        {item.hypothesis && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-2">📌 Hipotesa</h3>
-            <div className="card p-4">
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{item.hypothesis}</p>
+        <div className="detail-container">
+          {/* Author */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="author-avatar-lg">{firstLetter}</div>
+            <div>
+              <p className="font-medium">{item.author || 'Anonim'}</p>
+              <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
             </div>
           </div>
-        )}
 
-        {item.supporting && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-2">👍 Argumen Pendukung</h3>
-            <div className="card p-4">
-              <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--muted)' }}>{item.supporting}</p>
-            </div>
-          </div>
-        )}
+          {/* Topic */}
+          {topic && (
+            <span className="topic-badge-lg">
+              {topic.emoji} {topic.label}
+            </span>
+          )}
 
-        {(item.conclusion || item.counter) && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-2">✅ Kesimpulan</h3>
-            <div className="card p-4">
-              <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--muted)' }}>{item.conclusion || item.counter}</p>
-            </div>
-          </div>
-        )}
+          {/* Title */}
+          <h1 className="detail-title">{item.title || 'Tanpa judul'}</h1>
 
-        {relatedItems.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3">🔗 Related</h3>
-            <div className="space-y-2">
-              {relatedItems.map(r => (
-                <button key={r.id} onClick={() => onRelated(r.id)} className="card card-hover p-4 w-full text-left">
-                  <p className="text-sm font-medium">{r.title || 'Tanpa judul'}</p>
-                  <p className="text-xs" style={{ color: 'var(--muted)' }}>{r.author || 'Anonim'}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+          {/* Content */}
+          {item.content && (
+            <p className="detail-content">{item.content}</p>
+          )}
 
-        <div className="mb-6">
-          <button onClick={() => setShowTimeline(!showTimeline)} className="text-sm font-semibold mb-3">
-            📅 Updates ({item.timeline?.length || 0}) {showTimeline ? '▲' : '▼'}
-          </button>
-
-          {showTimeline && (
-            <div className="space-y-3 mb-4">
-              <textarea value={timelineContent} onChange={e => setTimelineContent(e.target.value)}
-                placeholder="Tambah update..." rows={2} className="text-sm" />
-              <button onClick={async () => {
-                if (timelineContent.trim()) {
-                  await onTimeline(timelineContent);
-                  setTimelineContent('');
-                }
-              }} className="btn btn-primary py-2 text-sm">Simpan</button>
+          {/* Hypothesis */}
+          {item.hypothesis && (
+            <div className="detail-section">
+              <h3 className="detail-section-title">📌 Hipotesa</h3>
+              <p className="whitespace-pre-wrap">{item.hypothesis}</p>
             </div>
           )}
 
-          {item.timeline?.map(t => (
-            <div key={t.id} className="pl-4 border-l-2 mb-3" style={{ borderColor: 'var(--border)' }}>
-              <p className="text-sm" style={{ color: 'var(--muted)' }}>{t.content}</p>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>{new Date(t.date).toLocaleDateString('id-ID')}</p>
+          {/* Supporting */}
+          {item.supporting && (
+            <div className="detail-section">
+              <h3 className="detail-section-title">👍 Argumen Pendukung</h3>
+              <p className="whitespace-pre-wrap">{item.supporting}</p>
             </div>
-          ))}
+          )}
+
+          {/* Conclusion */}
+          {(item.conclusion || item.counter) && (
+            <div className="detail-section">
+              <h3 className="detail-section-title">✅ Kesimpulan</h3>
+              <p className="whitespace-pre-wrap">{item.conclusion || item.counter}</p>
+            </div>
+          )}
+
+          {/* Related */}
+          {item.relatedIds?.length > 0 && (
+            <div className="detail-section">
+              <h3 className="detail-section-title">🔗 Terkait</h3>
+              <div className="space-y-2">
+                {item.relatedIds.map(id => {
+                  const r = all.find(h => h.id === id);
+                  return r && (
+                    <button key={id} onClick={() => onRelated(id)} className="related-btn">
+                      <p className="font-medium">{r.title || 'Tanpa judul'}</p>
+                      <p className="text-sm" style={{ color: 'var(--muted)' }}>{r.author || 'Anonim'}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Timeline */}
+          <div className="detail-section">
+            <button onClick={() => setShowTimeline(!showTimeline)} className="detail-section-title-btn">
+              📅 Updates ({item.timeline?.length || 0}) {showTimeline ? '▲' : '▼'}
+            </button>
+
+            {showTimeline && (
+              <div className="space-y-3">
+                <textarea
+                  value={timelineContent}
+                  onChange={e => setTimelineContent(e.target.value)}
+                  placeholder="Tambah update..."
+                  rows={2}
+                  className="text-sm"
+                />
+                <button
+                  onClick={async () => {
+                    if (timelineContent.trim()) {
+                      await onTimeline(timelineContent);
+                      setTimelineContent('');
+                    }
+                  }}
+                  className="btn-primary py-2 px-4 text-sm font-medium"
+                  style={{ background: 'var(--primary)', color: 'white', borderRadius: '12px' }}
+                >
+                  Simpan
+                </button>
+
+                {item.timeline?.map(t => (
+                  <div key={t.id} className="timeline-item">
+                    <p className="text-sm">{t.content}</p>
+                    <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                      {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4" style={{ background: 'var(--card)', borderTop: '1px solid var(--border)' }}>
-        <button onClick={handleShare} className="w-full py-4 font-semibold"
-          style={{ background: copied ? '#22C55E' : 'var(--primary)', color: 'white' }}>
+      {/* Share Button */}
+      <div className="fixed bottom-6 left-6 right-6">
+        <button onClick={handleShare} className="share-btn" style={{ background: copied ? '#22C55E' : 'var(--primary)' }}>
           {copied ? '✓ Tersalin!' : '📤 Bagikan'}
         </button>
       </div>
