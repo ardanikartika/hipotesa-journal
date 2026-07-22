@@ -328,18 +328,17 @@ function ArticleCard({ item, onClick }) {
       )}
 
       {/* Title - Bold & Big */}
-      <h3 className="card-title-big">{item.title || 'Tanpa judul'}</h3>
+      <h3 className="card-title-hero">{item.title || 'Tanpa judul'}</h3>
 
-      {/* Description Snippet */}
+      {/* Description - The actual content */}
       {item.content && (
-        <p className="card-snippet">{item.content.substring(0, 120)}...</p>
+        <p className="card-desc">{item.content}</p>
       )}
 
       {/* Footer - Tag + Author + Date */}
       <div className="card-footer-new">
         {topic && <span className="topic-badge">{topic.emoji} {topic.label}</span>}
         <span className="card-meta">
-          {sourceCount > 0 && <span>📚 {sourceCount} • </span>}
           Oleh {item.author || 'Anonim'} • {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
         </span>
       </div>
