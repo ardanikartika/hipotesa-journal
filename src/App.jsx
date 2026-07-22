@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useApp } from './context/AppContext';
-import { Plus, X, Search, Sun, Moon, Settings, Home, Download, Upload, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, X, Search, Settings, Home, Download, Upload, Trash2, RefreshCw } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import api from './utils/api';
 
@@ -342,20 +342,6 @@ function SettingsView({ hypotheses, onExport, onImport, onDeleteAll, onRefresh, 
               <Trash2 className="w-5 h-5" />
               <span>Hapus Semua Jurnal</span>
             </button>
-          </div>
-
-          {/* About */}
-          <div className="settings-section">
-            <h3 className="settings-title">💝 Tentang</h3>
-            <div className="about-card">
-              <p className="font-semibold mb-1">Hipotesa</p>
-              <p className="text-sm" style={{ color: 'var(--muted)' }}>
-                Jurnal personal untuk Gugah & Tika
-              </p>
-              <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
-                Dibuat dengan ❤️
-              </p>
-            </div>
           </div>
         </div>
       </main>
