@@ -175,6 +175,22 @@ export function AppProvider({ children }) {
     return hypotheses.find(h => h.id === id);
   }, [hypotheses]);
 
+  // Timeline
+  const addTimeline = useCallback(async (id, content) => {
+    const hypothesis = hypotheses.find(h => h.id === id);
+    if (!hypothesis) return;
+
+    const timelineItem = {
+      id: Date.now().toString(),
+      date: new Date().toISOString(),
+      content
+    };
+    const newTimeline = [...(hypothesis.timeline || []), timelineItem];
+    const updated = await api.update(id, { ...hypothesis, timeline: newTimeline });
+    setHypotheses(prev => prev.map(h => h.id === id ? updated : h));
+    return updated;
+  }, [hypotheses]);
+
   return (
     <AppContext.Provider value={{
       hypotheses,
@@ -188,6 +204,7 @@ export function AppProvider({ children }) {
       deleteHypothesis,
       addFinding,
       deleteFinding,
+      addTimeline,
       addSource,
       updateSource,
       deleteSource,

@@ -1,7 +1,42 @@
 import { useState, useCallback } from 'react';
 import { useApp } from './context/AppContext';
-import { Plus, X, Search, Download, Upload, Sparkles } from 'lucide-react';
+import { Plus, X, Search, Download, Upload, Sun, Moon } from 'lucide-react';
+import { useApp as useTheme } from './context/ThemeContext';
 import api from './utils/api';
+
+// Avatar presets
+const AUTHORS = [
+  { key: 'gugah', name: 'Gugah', gender: 'male', color: '#3B82F6' },
+  { key: 'tika', name: 'Tika', gender: 'female', color: '#EC4899' },
+];
+
+// Author avatars with cute anime style
+const getAuthorAvatar = (authorName) => {
+  const lower = (authorName || '').toLowerCase();
+
+  // Check if author matches known authors
+  if (lower.includes('gugah')) {
+    return {
+      emoji: '👨‍💻',
+      bg: '#3B82F6',
+      initials: 'G'
+    };
+  }
+  if (lower.includes('tika')) {
+    return {
+      emoji: '👩‍💕',
+      bg: '#EC4899',
+      initials: 'T'
+    };
+  }
+
+  // Default avatar
+  return {
+    emoji: '👤',
+    bg: '#6366F1',
+    initials: (authorName || 'A')[0].toUpperCase()
+  };
+};
 
 // Topik riset
 const TOPICS = [
@@ -21,7 +56,8 @@ const TOPICS = [
 ];
 
 function App() {
-  const { hypotheses, createHypothesis, updateHypothesis, deleteHypothesis, addTimeline, getHypothesisById, refreshData } = useApp();
+  const { hypotheses, createHypothesis, updateHypothesis, deleteHypothesis, addTimeline, getHypothesisById, refreshData, addSource, updateSource, deleteSource } = useApp();
+  const { theme, toggleTheme } = useTheme();
   const [tab, setTab] = useState('list');
   const [selected, setSelected] = useState(null);
   const [editMode, setEditMode] = useState(null);
@@ -71,6 +107,30 @@ function App() {
     if (h) setSelected(h);
   }, [getHypothesisById]);
 
+  const handleAddSource = useCallback(async (source) => {
+    if (selected) {
+      await addSource(selected.id, source);
+      const updated = getHypothesisById(selected.id);
+      if (updated) setSelected(updated);
+    }
+  }, [selected, addSource, getHypothesisById]);
+
+  const handleUpdateSource = useCallback(async (sourceIndex, data) => {
+    if (selected) {
+      await updateSource(selected.id, sourceIndex, data);
+      const updated = getHypothesisById(selected.id);
+      if (updated) setSelected(updated);
+    }
+  }, [selected, updateSource, getHypothesisById]);
+
+  const handleDeleteSource = useCallback(async (sourceIndex) => {
+    if (selected) {
+      await deleteSource(selected.id, sourceIndex);
+      const updated = getHypothesisById(selected.id);
+      if (updated) setSelected(updated);
+    }
+  }, [selected, deleteSource, getHypothesisById]);
+
   const handleExport = async () => {
     try {
       const data = await api.exportData();
@@ -104,11 +164,15 @@ function App() {
       <DetailView
         item={selected}
         all={hypotheses}
+        theme={theme}
         onEdit={() => { setEditMode(selected); setTab('edit'); }}
         onDelete={handleDelete}
         onTimeline={handleTimeline}
         onRelated={handleRelated}
         onBack={() => { setSelected(null); setTab('list'); }}
+        onAddSource={handleAddSource}
+        onUpdateSource={handleUpdateSource}
+        onDeleteSource={handleDeleteSource}
       />
     );
   }
@@ -131,7 +195,7 @@ function App() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="logo-icon">
-              <Sparkles className="w-5 h-5 text-white" />
+              ✨
             </div>
             <div>
               <h1 className="text-lg font-bold">Hipotesa</h1>
@@ -164,6 +228,9 @@ function App() {
               <Upload className="w-5 h-5" />
               <input type="file" accept=".json" onChange={handleImport} className="hidden" />
             </label>
+            <button onClick={toggleTheme} className="icon-btn" title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}>
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
           </div>
         </div>
       </header>
@@ -221,13 +288,16 @@ function App() {
 
 function ArticleCard({ item, onClick }) {
   const topic = TOPICS.find(t => t.key === item.topic);
-  const firstLetter = (item.author || 'A')[0].toUpperCase();
+  const authorAvatar = getAuthorAvatar(item.author);
+  const sourceCount = item.sources?.length || 0;
 
   return (
     <div onClick={onClick} className="article-card">
       {/* Author Avatar */}
       <div className="card-author">
-        <div className="author-avatar">{firstLetter}</div>
+        <div className="author-avatar" style={{ background: authorAvatar.bg }}>
+          {authorAvatar.emoji}
+        </div>
         <span className="author-name">Oleh {item.author || 'Anonim'}</span>
       </div>
 
@@ -246,9 +316,14 @@ function ArticleCard({ item, onClick }) {
             {topic.emoji} {topic.label}
           </span>
         )}
-        <span className="card-date">
-          {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-        </span>
+        <div className="flex items-center gap-2">
+          {sourceCount > 0 && (
+            <span className="source-count">📚 {sourceCount}</span>
+          )}
+          <span className="card-date">
+            {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -271,7 +346,8 @@ function EditView({ item, onSave, onCancel }) {
     await onSave({
       id: item?.id,
       title: item?.title || title,
-      author, content, topic, hypothesis, supporting, conclusion
+      author, content, topic, hypothesis, supporting, conclusion,
+      sources: item?.sources || []
     });
     setSaving(false);
   };
@@ -338,13 +414,16 @@ function EditView({ item, onSave, onCancel }) {
   );
 }
 
-function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack }) {
+function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack, onAddSource, onUpdateSource, onDeleteSource }) {
   const [showTimeline, setShowTimeline] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const [timelineContent, setTimelineContent] = useState('');
+  const [newSource, setNewSource] = useState({ title: '', url: '' });
   const [copied, setCopied] = useState(false);
 
   const topic = TOPICS.find(t => t.key === item.topic);
-  const firstLetter = (item.author || 'A')[0].toUpperCase();
+  const authorAvatar = getAuthorAvatar(item.author);
+  const sources = item.sources || [];
 
   const handleShare = async () => {
     const text = [
@@ -364,6 +443,24 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleAddSource = () => {
+    if (newSource.title.trim()) {
+      onAddSource({
+        title: newSource.title.trim(),
+        url: newSource.url.trim(),
+        status: 'to-read',
+        dateAdded: new Date().toISOString()
+      });
+      setNewSource({ title: '', url: '' });
+    }
+  };
+
+  const cycleSourceStatus = (index) => {
+    const s = sources[index];
+    const next = s.status === 'to-read' ? 'reading' : s.status === 'reading' ? 'done' : 'to-read';
+    onUpdateSource(index, { status: next });
+  };
+
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
       <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
@@ -378,9 +475,11 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
         <div className="detail-container">
           {/* Author */}
           <div className="flex items-center gap-3 mb-4">
-            <div className="author-avatar-lg">{firstLetter}</div>
+            <div className="author-avatar-lg" style={{ background: authorAvatar.bg }}>
+              {authorAvatar.emoji}
+            </div>
             <div>
-              <p className="font-medium">{item.author || 'Anonim'}</p>
+              <p className="font-semibold">{item.author || 'Anonim'}</p>
               <p className="text-sm" style={{ color: 'var(--muted)' }}>
                 {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
@@ -425,6 +524,72 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
               <p className="whitespace-pre-wrap">{item.conclusion || item.counter}</p>
             </div>
           )}
+
+          {/* Sources Section */}
+          <div className="detail-section">
+            <button onClick={() => setShowSources(!showSources)} className="detail-section-title-btn">
+              📚 Sumber ({sources.length}) {showSources ? '▲' : '▼'}
+            </button>
+
+            {showSources && (
+              <div className="space-y-3">
+                {/* Add Source Form */}
+                <div className="source-form">
+                  <input
+                    value={newSource.title}
+                    onChange={(e) => setNewSource(p => ({ ...p, title: e.target.value }))}
+                    placeholder="Judul paper, buku, atau artikel..."
+                    className="text-sm"
+                  />
+                  <input
+                    value={newSource.url}
+                    onChange={(e) => setNewSource(p => ({ ...p, url: e.target.value }))}
+                    placeholder="URL (opsional)"
+                    className="text-sm"
+                  />
+                  <button onClick={handleAddSource} disabled={!newSource.title.trim()} className="btn-primary text-sm py-2">
+                    + Tambah
+                  </button>
+                </div>
+
+                {/* Source List */}
+                {sources.map((s, i) => {
+                  const statusColors = {
+                    'to-read': { bg: '#F1F5F9', color: '#64748B' },
+                    'reading': { bg: '#DBEAFE', color: '#3B82F6' },
+                    'done': { bg: '#D1FAE5', color: '#059669' },
+                  };
+                  const sc = statusColors[s.status] || statusColors['to-read'];
+                  const statusLabels = { 'to-read': '📖 Akan baca', reading: '📖 Dibaca', done: '✅ Selesai' };
+
+                  return (
+                    <div key={i} className="source-card">
+                      <div className="flex items-start gap-3">
+                        <span className="text-lg mt-0.5">📄</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{s.title}</p>
+                          {s.url && (
+                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs source-link">
+                              🔗 {s.url.length > 40 ? s.url.substring(0, 40) + '...' : s.url}
+                            </a>
+                          )}
+                          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+                            Ditambahkan {new Date(s.dateAdded).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => cycleSourceStatus(i)} className="source-status" style={{ background: sc.bg, color: sc.color }}>
+                          {statusLabels[s.status]}
+                        </button>
+                        <button onClick={() => onDeleteSource(i)} className="source-delete">✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Related */}
           {item.relatedIds?.length > 0 && (
