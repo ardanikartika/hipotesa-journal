@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useApp } from './context/AppContext';
-import { Plus, X, Search, Download, Upload, Sun, Moon } from 'lucide-react';
+import { Plus, X, Search, Sun, Moon, Settings, Home, Download, Upload, Trash2, RefreshCw } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import api from './utils/api';
 
@@ -8,28 +8,13 @@ import api from './utils/api';
 const getAuthorAvatar = (authorName) => {
   const lower = (authorName || '').toLowerCase();
 
-  // Check if author matches known authors
   if (lower.includes('gugah')) {
-    return {
-      emoji: '👨‍💻',
-      bg: '#3B82F6',
-      initials: 'G'
-    };
+    return { emoji: '👨‍💻', bg: '#3B82F6', initials: 'G' };
   }
   if (lower.includes('tika')) {
-    return {
-      emoji: '👩‍💕',
-      bg: '#EC4899',
-      initials: 'T'
-    };
+    return { emoji: '👩‍💕', bg: '#EC4899', initials: 'T' };
   }
-
-  // Default avatar
-  return {
-    emoji: '👤',
-    bg: '#6366F1',
-    initials: (authorName || 'A')[0].toUpperCase()
-  };
+  return { emoji: '👤', bg: '#6366F1', initials: (authorName || 'A')[0].toUpperCase() };
 };
 
 // Topik riset
@@ -52,7 +37,7 @@ const TOPICS = [
 function App() {
   const { hypotheses, createHypothesis, updateHypothesis, deleteHypothesis, addTimeline, getHypothesisById, refreshData, addSource, updateSource, deleteSource } = useApp();
   const { theme, toggleTheme } = useTheme();
-  const [tab, setTab] = useState('list');
+  const [tab, setTab] = useState('home'); // home | detail | new | edit | settings
   const [selected, setSelected] = useState(null);
   const [editMode, setEditMode] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,7 +56,7 @@ function App() {
   const handleSave = useCallback(async (data) => {
     if (data.id) await updateHypothesis(data.id, data);
     else await createHypothesis(data);
-    setTab('list');
+    setTab('home');
     setEditMode(null);
   }, [createHypothesis, updateHypothesis]);
 
@@ -84,7 +69,7 @@ function App() {
     if (selected) {
       await deleteHypothesis(selected.id);
       setSelected(null);
-      setTab('list');
+      setTab('home');
     }
   }, [selected, deleteHypothesis]);
 
@@ -153,6 +138,15 @@ function App() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (confirm('Hapus semua jurnal? Tindakan ini tidak bisa dibatalkan.')) {
+      for (const h of hypotheses) {
+        await deleteHypothesis(h.id);
+      }
+    }
+  };
+
+  // Render based on current tab
   if (tab === 'detail' && selected) {
     return (
       <DetailView
@@ -162,7 +156,7 @@ function App() {
         onDelete={handleDelete}
         onTimeline={handleTimeline}
         onRelated={handleRelated}
-        onBack={() => { setSelected(null); setTab('list'); }}
+        onBack={() => { setSelected(null); setTab('home'); }}
         onAddSource={handleAddSource}
         onUpdateSource={handleUpdateSource}
         onDeleteSource={handleDeleteSource}
@@ -175,25 +169,36 @@ function App() {
       <EditView
         item={editMode}
         onSave={handleSave}
-        onCancel={() => { setEditMode(null); setTab(editMode ? 'detail' : 'list'); setSelected(null); }}
+        onCancel={() => { setEditMode(null); setTab(editMode ? 'detail' : 'home'); setSelected(null); }}
       />
     );
   }
 
+  if (tab === 'settings') {
+    return (
+      <SettingsView
+        hypotheses={hypotheses}
+        onExport={handleExport}
+        onImport={handleImport}
+        onDeleteAll={handleDeleteAll}
+        onRefresh={refreshData}
+        onBack={() => setTab('home')}
+      />
+    );
+  }
+
+  // Home Tab
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
       {/* Header */}
       <header className="header-blur sticky top-0 z-30 px-6 py-4">
         <div className="header-container">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="logo-icon">
-              ✨
-            </div>
-            <div>
-              <h1 className="text-lg font-bold">Hipotesa</h1>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>Gugah & Tika</p>
-            </div>
+            <button onClick={toggleTheme} className="logo-icon" title="Ganti Tema">
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <h1 className="text-lg font-bold">Hipotesa</h1>
           </div>
 
           {/* Search */}
@@ -210,20 +215,6 @@ function App() {
                 <X className="w-4 h-4" />
               </button>
             )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            <button onClick={handleExport} className="icon-btn" title="Export">
-              <Download className="w-5 h-5" />
-            </button>
-            <label className="icon-btn cursor-pointer" title="Import">
-              <Upload className="w-5 h-5" />
-              <input type="file" accept=".json" onChange={handleImport} className="hidden" />
-            </label>
-            <button onClick={toggleTheme} className="icon-btn" title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}>
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
           </div>
         </div>
       </header>
@@ -270,11 +261,104 @@ function App() {
         </div>
       </main>
 
-      {/* FAB */}
-      <button onClick={() => setTab('new')} className="fab-button">
-        <Plus className="w-5 h-5" />
-        <span>Hipotesa Baru</span>
-      </button>
+      {/* Bottom Navigation */}
+      <nav className="bottom-nav">
+        <button onClick={() => setTab('home')} className="nav-item">
+          <Home className="w-5 h-5" />
+          <span>Beranda</span>
+        </button>
+
+        <button onClick={() => setTab('new')} className="nav-new-btn">
+          <Plus className="w-6 h-6" />
+          <span>Baru</span>
+        </button>
+
+        <button onClick={() => setTab('settings')} className="nav-item">
+          <Settings className="w-5 h-5" />
+          <span>Pengaturan</span>
+        </button>
+      </nav>
+    </div>
+  );
+}
+
+// Settings View
+function SettingsView({ hypotheses, onExport, onImport, onDeleteAll, onRefresh, onBack }) {
+  return (
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
+      <header className="header-blur sticky top-0 z-30 px-6 py-4 flex items-center gap-4" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
+        <button onClick={onBack} className="p-2 rounded-lg" style={{ background: 'var(--bg)' }}>
+          ←
+        </button>
+        <h1 className="text-lg font-bold">Pengaturan</h1>
+      </header>
+
+      <main className="px-6 py-6">
+        <div className="settings-container">
+          {/* Stats */}
+          <div className="settings-section">
+            <h3 className="settings-title">📊 Statistik</h3>
+            <div className="stats-card">
+              <div className="stat-item">
+                <span className="stat-number">{hypotheses.length}</span>
+                <span className="stat-label">Total Jurnal</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">
+                  {hypotheses.filter(h => h.author?.toLowerCase().includes('gugah')).length}
+                </span>
+                <span className="stat-label">Jurnal Gugah</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">
+                  {hypotheses.filter(h => h.author?.toLowerCase().includes('tika')).length}
+                </span>
+                <span className="stat-label">Jurnal Tika</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Data Management */}
+          <div className="settings-section">
+            <h3 className="settings-title">💾 Data</h3>
+
+            <button onClick={onExport} className="settings-btn">
+              <Download className="w-5 h-5" />
+              <span>Export Semua Jurnal</span>
+            </button>
+
+            <label className="settings-btn cursor-pointer">
+              <Upload className="w-5 h-5" />
+              <span>Import Jurnal</span>
+              <input type="file" accept=".json" onChange={onImport} className="hidden" />
+            </label>
+
+            <button onClick={onRefresh} className="settings-btn">
+              <RefreshCw className="w-5 h-5" />
+              <span>Refresh Data</span>
+            </button>
+
+            <button onClick={onDeleteAll} className="settings-btn danger">
+              <Trash2 className="w-5 h-5" />
+              <span>Hapus Semua Jurnal</span>
+            </button>
+          </div>
+
+          {/* About */}
+          <div className="settings-section">
+            <h3 className="settings-title">💝 Tentang</h3>
+            <div className="about-card">
+              <p className="font-semibold mb-1">Hipotesa</p>
+              <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                Jurnal personal untuk Gugah & Tika
+              </p>
+              <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
+                Dibuat dengan ❤️
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
@@ -286,7 +370,6 @@ function ArticleCard({ item, onClick }) {
 
   return (
     <div onClick={onClick} className="article-card">
-      {/* Author Avatar */}
       <div className="card-author">
         <div className="author-avatar" style={{ background: authorAvatar.bg }}>
           {authorAvatar.emoji}
@@ -294,15 +377,12 @@ function ArticleCard({ item, onClick }) {
         <span className="author-name">Oleh {item.author || 'Anonim'}</span>
       </div>
 
-      {/* Title */}
       <h3 className="card-title">{item.title || 'Tanpa judul'}</h3>
 
-      {/* Preview */}
       {item.content && (
         <p className="card-preview">{item.content.substring(0, 100)}...</p>
       )}
 
-      {/* Footer */}
       <div className="card-footer">
         {topic && (
           <span className="topic-badge">
@@ -466,7 +546,6 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
 
       <main className="px-6 py-6">
         <div className="detail-container">
-          {/* Author */}
           <div className="flex items-center gap-3 mb-4">
             <div className="author-avatar-lg" style={{ background: authorAvatar.bg }}>
               {authorAvatar.emoji}
@@ -479,22 +558,14 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
             </div>
           </div>
 
-          {/* Topic */}
           {topic && (
-            <span className="topic-badge-lg">
-              {topic.emoji} {topic.label}
-            </span>
+            <span className="topic-badge-lg">{topic.emoji} {topic.label}</span>
           )}
 
-          {/* Title */}
           <h1 className="detail-title">{item.title || 'Tanpa judul'}</h1>
 
-          {/* Content */}
-          {item.content && (
-            <p className="detail-content">{item.content}</p>
-          )}
+          {item.content && <p className="detail-content">{item.content}</p>}
 
-          {/* Hypothesis */}
           {item.hypothesis && (
             <div className="detail-section">
               <h3 className="detail-section-title">📌 Hipotesa</h3>
@@ -502,7 +573,6 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
             </div>
           )}
 
-          {/* Supporting */}
           {item.supporting && (
             <div className="detail-section">
               <h3 className="detail-section-title">👍 Argumen Pendukung</h3>
@@ -510,7 +580,6 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
             </div>
           )}
 
-          {/* Conclusion */}
           {(item.conclusion || item.counter) && (
             <div className="detail-section">
               <h3 className="detail-section-title">✅ Kesimpulan</h3>
@@ -526,32 +595,14 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
 
             {showSources && (
               <div className="space-y-3">
-                {/* Add Source Form */}
                 <div className="source-form">
-                  <input
-                    value={newSource.title}
-                    onChange={(e) => setNewSource(p => ({ ...p, title: e.target.value }))}
-                    placeholder="Judul paper, buku, atau artikel..."
-                    className="text-sm"
-                  />
-                  <input
-                    value={newSource.url}
-                    onChange={(e) => setNewSource(p => ({ ...p, url: e.target.value }))}
-                    placeholder="URL (opsional)"
-                    className="text-sm"
-                  />
-                  <button onClick={handleAddSource} disabled={!newSource.title.trim()} className="btn-primary text-sm py-2">
-                    + Tambah
-                  </button>
+                  <input value={newSource.title} onChange={(e) => setNewSource(p => ({ ...p, title: e.target.value }))} placeholder="Judul paper, buku, atau artikel..." className="text-sm" />
+                  <input value={newSource.url} onChange={(e) => setNewSource(p => ({ ...p, url: e.target.value }))} placeholder="URL (opsional)" className="text-sm" />
+                  <button onClick={handleAddSource} disabled={!newSource.title.trim()} className="btn-primary text-sm py-2">+ Tambah</button>
                 </div>
 
-                {/* Source List */}
                 {sources.map((s, i) => {
-                  const statusColors = {
-                    'to-read': { bg: '#F1F5F9', color: '#64748B' },
-                    'reading': { bg: '#DBEAFE', color: '#3B82F6' },
-                    'done': { bg: '#D1FAE5', color: '#059669' },
-                  };
+                  const statusColors = { 'to-read': { bg: '#F1F5F9', color: '#64748B' }, reading: { bg: '#DBEAFE', color: '#3B82F6' }, done: { bg: '#D1FAE5', color: '#059669' } };
                   const sc = statusColors[s.status] || statusColors['to-read'];
                   const statusLabels = { 'to-read': '📖 Akan baca', reading: '📖 Dibaca', done: '✅ Selesai' };
 
@@ -561,20 +612,12 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
                         <span className="text-lg mt-0.5">📄</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium">{s.title}</p>
-                          {s.url && (
-                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs source-link">
-                              🔗 {s.url.length > 40 ? s.url.substring(0, 40) + '...' : s.url}
-                            </a>
-                          )}
-                          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-                            Ditambahkan {new Date(s.dateAdded).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                          </p>
+                          {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs source-link">🔗 {s.url.length > 40 ? s.url.substring(0, 40) + '...' : s.url}</a>}
+                          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Ditambahkan {new Date(s.dateAdded).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <button onClick={() => cycleSourceStatus(i)} className="source-status" style={{ background: sc.bg, color: sc.color }}>
-                          {statusLabels[s.status]}
-                        </button>
+                        <button onClick={() => cycleSourceStatus(i)} className="source-status" style={{ background: sc.bg, color: sc.color }}>{statusLabels[s.status]}</button>
                         <button onClick={() => onDeleteSource(i)} className="source-delete">✕</button>
                       </div>
                     </div>
@@ -584,7 +627,6 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
             )}
           </div>
 
-          {/* Related */}
           {item.relatedIds?.length > 0 && (
             <div className="detail-section">
               <h3 className="detail-section-title">🔗 Terkait</h3>
@@ -602,7 +644,6 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
             </div>
           )}
 
-          {/* Timeline */}
           <div className="detail-section">
             <button onClick={() => setShowTimeline(!showTimeline)} className="detail-section-title-btn">
               📅 Updates ({item.timeline?.length || 0}) {showTimeline ? '▲' : '▼'}
@@ -610,32 +651,12 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
 
             {showTimeline && (
               <div className="space-y-3">
-                <textarea
-                  value={timelineContent}
-                  onChange={e => setTimelineContent(e.target.value)}
-                  placeholder="Tambah update..."
-                  rows={2}
-                  className="text-sm"
-                />
-                <button
-                  onClick={async () => {
-                    if (timelineContent.trim()) {
-                      await onTimeline(timelineContent);
-                      setTimelineContent('');
-                    }
-                  }}
-                  className="btn-primary py-2 px-4 text-sm font-medium"
-                  style={{ background: 'var(--primary)', color: 'white', borderRadius: '12px' }}
-                >
-                  Simpan
-                </button>
-
+                <textarea value={timelineContent} onChange={e => setTimelineContent(e.target.value)} placeholder="Tambah update..." rows={2} className="text-sm" />
+                <button onClick={async () => { if (timelineContent.trim()) { await onTimeline(timelineContent); setTimelineContent(''); } }} className="btn-primary py-2 px-4 text-sm font-medium" style={{ background: 'var(--primary)', color: 'white', borderRadius: '12px' }}>Simpan</button>
                 {item.timeline?.map(t => (
                   <div key={t.id} className="timeline-item">
                     <p className="text-sm">{t.content}</p>
-                    <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                      {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
+                    <p className="text-xs" style={{ color: 'var(--muted)' }}>{new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                   </div>
                 ))}
               </div>
@@ -644,7 +665,6 @@ function DetailView({ item, all, onEdit, onDelete, onTimeline, onRelated, onBack
         </div>
       </main>
 
-      {/* Share Button */}
       <div className="fixed bottom-6 left-6 right-6">
         <button onClick={handleShare} className="share-btn" style={{ background: copied ? '#22C55E' : 'var(--primary)' }}>
           {copied ? '✓ Tersalin!' : '📤 Bagikan'}
