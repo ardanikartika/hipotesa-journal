@@ -316,35 +316,35 @@ function ArticleCard({ item, onClick }) {
   const authorAvatar = getAuthorAvatar(item.author);
   const sourceCount = item.sources?.length || 0;
 
+  // Get first image from sources
+  const coverImage = item.sources?.find(s => s.url && (s.url.match(/\.(jpg|jpeg|png|gif|webp)$/i) || s.type === 'image'));
+
   return (
     <div onClick={onClick} className="article-card">
-      <div className="card-author">
-        <div className="author-avatar" style={{ background: authorAvatar.bg }}>
-          {authorAvatar.emoji}
+      {/* Cover Image */}
+      {coverImage && (
+        <div className="card-cover">
+          <img src={coverImage.url} alt="cover" className="cover-image" />
         </div>
-        <span className="author-name">Oleh {item.author || 'Anonim'}</span>
-      </div>
-
-      <h3 className="card-title">{item.title || 'Tanpa judul'}</h3>
-
-      {item.content && (
-        <p className="card-preview">{item.content.substring(0, 100)}...</p>
       )}
 
-      <div className="card-footer">
+      {/* Title - Bold & Big */}
+      <h3 className="card-title-big">{item.title || 'Tanpa judul'}</h3>
+
+      {/* Description Snippet */}
+      {item.content && (
+        <p className="card-snippet">{item.content.substring(0, 120)}...</p>
+      )}
+
+      {/* Footer - Tag + Author + Date */}
+      <div className="card-footer-new">
         {topic && (
-          <span className="topic-badge">
-            {topic.emoji} {topic.label}
-          </span>
+          <span className="topic-badge">{topic.emoji} {topic.label}</span>
         )}
-        <div className="flex items-center gap-2">
-          {sourceCount > 0 && (
-            <span className="source-count">📚 {sourceCount}</span>
-          )}
-          <span className="card-date">
-            {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-          </span>
-        </div>
+        <span className="author-date">
+          {sourceCount > 0 && <span>📚 {sourceCount} • </span>}
+          Oleh {item.author || 'Anonim'} • {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+        </span>
       </div>
     </div>
   );
@@ -357,6 +357,9 @@ function EditView({ item, onSave, onCancel }) {
   const [hypothesis, setHypothesis] = useState(item?.hypothesis || '');
   const [supporting, setSupporting] = useState(item?.supporting || '');
   const [conclusion, setConclusion] = useState(item?.conclusion || item?.counter || '');
+  const [sources, setSources] = useState(item?.sources || []);
+  const [newSource, setNewSource] = useState({ title: '', url: '' });
+  const [showSources, setShowSources] = useState(item?.sources?.length > 0);
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -368,9 +371,20 @@ function EditView({ item, onSave, onCancel }) {
       id: item?.id,
       title: item?.title || title,
       author, content, topic, hypothesis, supporting, conclusion,
-      sources: item?.sources || []
+      sources
     });
     setSaving(false);
+  };
+
+  const addSource = () => {
+    if (newSource.title.trim()) {
+      setSources([...sources, { ...newSource, status: 'to-read', dateAdded: new Date().toISOString() }]);
+      setNewSource({ title: '', url: '' });
+    }
+  };
+
+  const removeSource = (index) => {
+    setSources(sources.filter((_, i) => i !== index));
   };
 
   return (
@@ -424,6 +438,50 @@ function EditView({ item, onSave, onCancel }) {
         <div>
           <label className="text-sm font-medium block mb-2" style={{ color: 'var(--muted)' }}>Kesimpulan</label>
           <textarea value={conclusion} onChange={e => setConclusion(e.target.value)} placeholder="Kesimpulan..." rows={3} />
+        </div>
+
+        {/* Sources Section */}
+        <div className="card p-4">
+          <button type="button" onClick={() => setShowSources(!showSources)} className="w-full flex items-center justify-between text-sm font-medium">
+            <span>📚 Sumber ({sources.length})</span>
+            <span>{showSources ? '▲' : '▼'}</span>
+          </button>
+
+          {showSources && (
+            <div className="mt-4 space-y-3">
+              {/* Add Source Form */}
+              <div className="space-y-2">
+                <input
+                  value={newSource.title}
+                  onChange={e => setNewSource(p => ({ ...p, title: e.target.value }))}
+                  placeholder="Judul sumber..."
+                  className="text-sm"
+                />
+                <input
+                  value={newSource.url}
+                  onChange={e => setNewSource(p => ({ ...p, url: e.target.value }))}
+                  placeholder="URL foto atau link..."
+                  className="text-sm"
+                />
+                <button type="button" onClick={addSource} disabled={!newSource.title.trim()}
+                  className="w-full py-2 text-sm font-medium rounded-lg"
+                  style={{ background: 'var(--bg)', color: 'var(--primary)' }}>
+                  + Tambah Sumber
+                </button>
+              </div>
+
+              {/* Source List */}
+              {sources.map((s, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{s.title}</p>
+                    {s.url && <p className="text-xs truncate" style={{ color: 'var(--primary)' }}>{s.url}</p>}
+                  </div>
+                  <button type="button" onClick={() => removeSource(i)} className="ml-2 text-red-500 text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <button type="submit" disabled={saving || !content}
