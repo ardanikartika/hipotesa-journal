@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useApp } from './context/AppContext';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Search, Download, Upload } from 'lucide-react';
+import api from './utils/api';
 
 // Topik riset
 const TOPICS = [
@@ -63,6 +64,34 @@ function App() {
     if (r) { setSelected(r); setTab('detail'); }
   }, [getRandomHypothesis]);
 
+  const handleExport = async () => {
+    try {
+      const data = await api.exportData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hipotesa-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      await api.importData(data);
+      window.location.reload();
+    } catch (err) {
+      console.error('Import failed:', err);
+    }
+  };
+
   if (tab === 'detail' && selected) {
     return (
       <DetailView
@@ -91,16 +120,41 @@ function App() {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--bg)' }}>
       <header className="sticky top-0 z-30 px-6 py-5" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold">Hipotesa</h1>
             <p className="text-sm" style={{ color: 'var(--muted)' }}>{hypotheses.length} jurnal</p>
           </div>
-          <button onClick={handleRandom} className="p-3 rounded-xl" style={{ background: 'var(--bg)' }}>🎲</button>
+          <div className="flex gap-2">
+            <button onClick={handleRandom} className="p-3 rounded-xl" style={{ background: 'var(--bg)' }} title="Random">🎲</button>
+            <button onClick={handleExport} className="p-3 rounded-xl" style={{ background: 'var(--bg)' }} title="Export"><Download className="w-5 h-5" /></button>
+            <label className="p-3 rounded-xl cursor-pointer" style={{ background: 'var(--bg)' }} title="Import">
+              <Upload className="w-5 h-5" />
+              <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+            </label>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--muted)' }} />
+          <input
+            type="text"
+            placeholder="Cari jurnal..."
+            className="pl-12"
+          />
         </div>
       </header>
 
-      <main className="px-6 py-6">
+      {/* Topic Filter */}
+      <div className="px-6 py-3 flex gap-2 overflow-x-auto">
+        <button className="filter-pill active">Semua</button>
+        {TOPICS.map(t => (
+          <button key={t.key} className="filter-pill">{t.emoji} {t.label}</button>
+        ))}
+      </div>
+
+      <main className="px-6 py-4">
         {hypotheses.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">📝</div>
