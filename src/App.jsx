@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
 import { useApp } from './context/AppContext';
-import { Plus, X, Search, Settings, Home, Download, Upload, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, X, Search, Settings, Home, Download, Upload, RefreshCw } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import api from './utils/api';
 
-// Author avatars with cute anime style
+// Author avatars
 const getAuthorAvatar = (authorName) => {
   const lower = (authorName || '').toLowerCase();
 
@@ -12,7 +12,7 @@ const getAuthorAvatar = (authorName) => {
     return { emoji: '👨‍💻', bg: '#3B82F6', initials: 'G' };
   }
   if (lower.includes('tika')) {
-    return { emoji: '👩‍💕', bg: '#EC4899', initials: 'T' };
+    return { emoji: '👩‍💻', bg: '#EC4899', initials: 'T' };
   }
   return { emoji: '👤', bg: '#6366F1', initials: (authorName || 'A')[0].toUpperCase() };
 };
@@ -138,14 +138,6 @@ function App() {
     }
   };
 
-  const handleDeleteAll = async () => {
-    if (confirm('Hapus semua jurnal? Tindakan ini tidak bisa dibatalkan.')) {
-      for (const h of hypotheses) {
-        await deleteHypothesis(h.id);
-      }
-    }
-  };
-
   // Render based on current tab
   if (tab === 'detail' && selected) {
     return (
@@ -177,10 +169,8 @@ function App() {
   if (tab === 'settings') {
     return (
       <SettingsView
-        hypotheses={hypotheses}
         onExport={handleExport}
         onImport={handleImport}
-        onDeleteAll={handleDeleteAll}
         onRefresh={refreshData}
         onBack={() => setTab('home')}
       />
@@ -283,7 +273,7 @@ function App() {
 }
 
 // Settings View
-function SettingsView({ hypotheses, onExport, onImport, onDeleteAll, onRefresh, onBack }) {
+function SettingsView({ onExport, onImport, onRefresh, onBack }) {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <header className="header-blur sticky top-0 z-30 px-6 py-4 flex items-center gap-4" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
@@ -295,29 +285,6 @@ function SettingsView({ hypotheses, onExport, onImport, onDeleteAll, onRefresh, 
 
       <main className="px-6 py-6">
         <div className="settings-container">
-          {/* Stats */}
-          <div className="settings-section">
-            <h3 className="settings-title">📊 Statistik</h3>
-            <div className="stats-card">
-              <div className="stat-item">
-                <span className="stat-number">{hypotheses.length}</span>
-                <span className="stat-label">Total Jurnal</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">
-                  {hypotheses.filter(h => h.author?.toLowerCase().includes('gugah')).length}
-                </span>
-                <span className="stat-label">Jurnal Gugah</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">
-                  {hypotheses.filter(h => h.author?.toLowerCase().includes('tika')).length}
-                </span>
-                <span className="stat-label">Jurnal Tika</span>
-              </div>
-            </div>
-          </div>
-
           {/* Data Management */}
           <div className="settings-section">
             <h3 className="settings-title">💾 Data</h3>
@@ -336,11 +303,6 @@ function SettingsView({ hypotheses, onExport, onImport, onDeleteAll, onRefresh, 
             <button onClick={onRefresh} className="settings-btn">
               <RefreshCw className="w-5 h-5" />
               <span>Refresh Data</span>
-            </button>
-
-            <button onClick={onDeleteAll} className="settings-btn danger">
-              <Trash2 className="w-5 h-5" />
-              <span>Hapus Semua Jurnal</span>
             </button>
           </div>
         </div>
