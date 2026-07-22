@@ -1,14 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useApp } from './context/AppContext';
 import { Plus, X, Search, Download, Upload, Sun, Moon } from 'lucide-react';
-import { useApp as useTheme } from './context/ThemeContext';
+import { useTheme } from './context/ThemeContext';
 import api from './utils/api';
-
-// Avatar presets
-const AUTHORS = [
-  { key: 'gugah', name: 'Gugah', gender: 'male', color: '#3B82F6' },
-  { key: 'tika', name: 'Tika', gender: 'female', color: '#EC4899' },
-];
 
 // Author avatars with cute anime style
 const getAuthorAvatar = (authorName) => {
@@ -164,7 +158,6 @@ function App() {
       <DetailView
         item={selected}
         all={hypotheses}
-        theme={theme}
         onEdit={() => { setEditMode(selected); setTab('edit'); }}
         onDelete={handleDelete}
         onTimeline={handleTimeline}
